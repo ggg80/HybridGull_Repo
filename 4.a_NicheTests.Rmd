@@ -1,0 +1,56 @@
+---
+title: "Niche_Tests"
+author: "Xuewen Geng"
+date: "4/19/2022"
+output: html_document
+---
+# ENMTools
+```{r ENMTools, cache=TRUE}
+#ENMTools
+gg.enmsp<-enmtools.species()
+gg.enmsp$species.name<-"Glaucous-winged Gull"
+gg.latlon=cbind(gg.check$long,gg.check$lat)
+colnames(gg.latlon)<-c("Longitude","Latitude")
+gg.enmsp$presence.points<-gg.latlon
+gg.enmsp$background.points<-BG.lonlat
+check.species(gg.enmsp)
+
+wg.enmsp<-enmtools.species()
+wg.enmsp$species.name<-"Western Gull"
+wg.latlon=cbind(wg.check$long,wg.check$lat)
+colnames(wg.latlon)=c("Longitude","Latitude")
+wg.enmsp$presence.points<-wg.latlon
+wg.enmsp$background.points<-BG.lonlat
+check.species(wg.enmsp)
+
+hg.enmsp<-enmtools.species()
+hg.enmsp$species.name<-"Olympic Gull"
+hg.latlon=cbind(hg.check$long,hg.check$lat)
+colnames(hg.latlon)=c("Longitude","Latitude")
+hg.enmsp$presence.points<-hg.latlon
+hg.enmsp$background.points<-BG.lonlat
+check.species(hg.enmsp)
+
+```
+
+#Niche Tests
+```{r,cache=TRUE}
+WorldClim.sr<-rast(WorldClim.vif)
+#WorldClim.sr_lc<-rast(WorldClim.vif_lc)
+gg.hg.identity.test=identity.test(gg.enmsp,hg.enmsp,WorldClim.sr,type="mx",bg.source= "points",low.memory = TRUE,factors="landcover.type")
+wg.hg.identity.test=identity.test(wg.enmsp,hg.enmsp,WorldClim.sr,type="mx",bg.source= "points",low.memory = TRUE,factors="landcover.type")
+
+#gg.hg.identity.test_lc=identity.test(gg.enmsp,hg.enmsp,WorldClim.sr_lc,type="mx",bg.source= "points",low.memory = TRUE)
+#wg.hg.identity.test_lc=identity.test(wg.enmsp,hg.enmsp,WorldClim.sr_lc,type="mx",bg.source= "points",low.memory = TRUE)
+
+wg.hg.rb.blob=rangebreak.blob(wg.enmsp,hg.enmsp,bg.source= "points",WorldClim.sr,type = "mx",low.memory=TRUE,factors="landcover.type")
+gg.hg.rb.blob=rangebreak.blob(gg.enmsp,hg.enmsp,bg.source= "points",WorldClim.sr,type = "mx",low.memory=TRUE,factors="landcover.type")
+
+wg.hg.rb.linear=rangebreak.linear(wg.enmsp,hg.enmsp,bg.source= "points",WorldClim.sr,type = "mx",low.memory=TRUE,factors="landcover.type")
+gg.hg.rb.linear=rangebreak.linear(gg.enmsp,hg.enmsp,bg.source= "points",WorldClim.sr,type = "mx",low.memory=TRUE,factors="landcover.type")
+
+#gg.wg.rb.ribbon=rangebreak.ribbon(wg.enmsp,gg.enmsp,hg.enmsp,bg.source="points",WorldClim.sr,type="mx",low.memory=TRUE,factors="landcover.type" )
+#wg.hg.rb.blob_lc=rangebreak.blob(wg.enmsp,hg.enmsp,bg.source= "points", WorldClim.sr_lc,type = "mx",low.memory=TRUE)
+#gg.hg.rb.blob_lc=rangebreak.blob(gg.enmsp,hg.enmsp,bg.source= "points", WorldClim.sr_lc,type = "mx",low.memory=TRUE)
+
+```

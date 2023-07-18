@@ -1,0 +1,179 @@
+---
+title: "LoadBG"
+author: "Xuewen Geng"
+date: '2022-06-21'
+output: html_document
+---
+```{r Load Data}
+library(auk)
+#read occurrence data from Canada: British Columbia
+CA_BC<-"input/ebd_CA-BC_relMay-2023.txt"
+f_out <- "data/ebd_filtered_CA-BC.txt"
+filters <- auk_ebd(CA_BC)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+CA_BC<-read_ebd(filtered)
+
+#read occurrence data from US: Alaska, California, Oregon, Washington
+US_OR<-"input/ebd_US-OR_relMay-2023.txt"
+f_out <- "data/ebd_filtered_US-OR.txt"
+filters <- auk_ebd(US_OR)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+US_OR <- read_ebd(filtered)
+
+US_AK<-"input/ebd_US-AK_relMay-2023.txt"
+f_out <- "data/ebd_filtered_US-AK.txt"
+filters <- auk_ebd(US_AK)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+US_AK <- read_ebd(filtered)
+
+US_CA<-"input/ebd_US-CA_relMay-2023.txt"
+f_out <- "data/ebd_filtered_US-CA.txt"
+filters <- auk_ebd(US_CA)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+US_CA <- read_ebd(filtered)
+
+US_WA<-"input/ebd_US-WA_relMay-2023.txt"
+f_out <- "data/ebd_filtered_US-WA.txt"
+filters <- auk_ebd(US_WA)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+US_WA <- read_ebd(filtered)
+
+#Load occurrence data from Mexico: Baja California and Baja California Sur
+MX_BCN<-"input/ebd_MX-BCN_relMay-2023.txt"
+f_out <- "data/ebd_filtered_US-BCN.txt"
+filters <- auk_ebd(MX_BCN)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+MX_BCN <- read_ebd(filtered)
+
+MX_BCS<-"input/ebd_MX-BCS_relMay-2023.txt"
+f_out <- "data/ebd_filtered_US-BCS.txt"
+filters <- auk_ebd(MX_BCS)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+MX_BCS <- read_ebd(filtered)
+```
+```{R}
+r=sample(length(CA_BC$checklist_id),22301)
+CA_BC=CA_BC[r,]
+plot(wrld_simpl.cb)
+points(CA_BC$longitude,CA_BC$latitude)
+
+r=sample(length(US_AK$checklist_id),6267)
+US_AK=US_AK[r,]
+plot(wrld_simpl.cb)
+points(US_AK$longitude,US_AK$latitude)
+
+r=sample(length(US_OR$checklist_id),24595)
+US_OR=US_OR[r,]
+plot(wrld_simpl.cb)
+points(US_OR$longitude,US_OR$latitude)
+
+r=sample(length(US_WA$checklist_id),26618)
+US_WA=US_WA[r,]
+plot(wrld_simpl.cb)
+points(US_WA$longitude,US_WA$latitude)
+
+r=sample(length(US_CA$checklist_id),63866)
+US_CA=US_CA[r,]
+plot(wrld_simpl.cb)
+points(US_CA$longitude,US_CA$latitude)
+
+r=sample(length(MX_BCN$checklist_id),323)
+MX_BCN=MX_BCN[r,]
+plot(wrld_simpl.cb)
+points(MX_BCN$longitude,MX_BCN$latitude)
+
+r=sample(length(MX_BCS$checklist_id),182)
+MX_BCS=MX_BCS[r,]
+plot(wrld_simpl.cb)
+points(MX_BCS$longitude,MX_BCS$latitude)
+
+BG=rbind.data.frame(CA_BC,US_OR,US_WA,US_CA,US_AK,MX_BCN,MX_BCS)
+plot(wrld_simpl.cb)
+points(BG$longitude,BG$latitude)
+```
+```{r}
+BG=BG[which(BG$number_observers<=10),]
+BG.t<-BG[grep("Gull|Tern|Skimmer|Noddy",BG$common_name),]
+t.r=sample(length(BG.t$scientific_name),1000)
+r=sample(length(BG$scientific_name),10000)
+BG.t.r=BG.t[t.r,]
+BG.r=BG[r,]
+thin(BG.r,lat.col = "latitude",long.col = "longitude",spec.col = "common_name",thin.par=0.5,reps=1,out.dir = "./data",out.base = "bg_thin")
+BG.thin<-read.csv("data/bg_thin_thin1.csv",header=TRUE,)
+thin.r=sample(length(BG.thin$long),1500)
+BG.thin.r=BG.thin[thin.r,]
+
+
+WorldClim.bg=raster::extract(WorldClim.cb,cbind(BG.thin.r$long,BG.thin.r$lat),df=TRUE)
+bg.check=cbind(longitude=BG.thin.r$long,latitude=BG.thin.r$lat,WorldClim.bg)
+any(is.na(bg.check))
+bg.check=bg.check[!is.na(bg.check$bio1),]
+bg.check=bg.check[!is.na(bg.check$landcover.type),]
+
+WorldClim.bg=raster::extract(WorldClim.cb,cbind(BG.t.r$longitude,BG.t.r$latitude),df=TRUE)
+bg.check.t=cbind(longitude=BG.t.r$longitude,latitude=BG.t.r$latitude,WorldClim.bg)
+any(is.na(bg.check.t))
+bg.check.t=bg.check.t[!is.na(bg.check.t$bio1),]
+bg.check.t=bg.check.t[!is.na(bg.check.t$landcover.type),]
+
+plot(wrld_simpl.cb)
+points(bg.check$longitude,bg.check$latitude)
+BG.lonlat<-cbind(longitude=bg.check$longitude,latitude=bg.check$latitude)
+
+plot(wrld_simpl.cb)
+points(bg.check.t$longitude,bg.check.t$latitude)
+BG.lonlat.t<-cbind(longitude=bg.check.t$longitude,latitude=bg.check.t$latitude)
+
+```
+```{r}
+BG.r=BG_latlon_r
+WorldClim.bg=raster::extract(WorldClim.cb,cbind(BG.r$longitude,BG.r$latitude),df=TRUE)
+bg.check=cbind(longitude=BG.r$longitude,latitude=BG.r$latitude,WorldClim.bg)
+any(is.na(bg.check))
+bg.check=bg.check[!is.na(bg.check$bio1),]
+bg.check=bg.check[!is.na(bg.check$landcover.type),]
+
+BG.latlon.r=cbind(longitude=bg.check$longitude,latitude=bg.check$latitude)
+```

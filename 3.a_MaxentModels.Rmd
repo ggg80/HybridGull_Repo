@@ -1,0 +1,302 @@
+---
+title: "2.a_MaxentModels"
+output: html_document
+date: "2023-07-16"
+---
+
+```{r maxent replicate}
+# make a new dataframe with just the coordinates for our occurrence data
+gg.loc<-cbind(gg.check$long,gg.check$lat)
+
+gg.Model <- maxent(WorldClim.vif, gg.loc, a=BG.lonlat, factors="landcover.type",args=c("replicates=10","replicatetype=Crossvalidate","responsecurves=TRUE","writeplotdata=TRUE","jackknife=TRUE"))
+
+gg.t.Model <- maxent(WorldClim.vif, gg.loc, a=BG.lonlat, factors="landcover.type",args=c("replicates=10","replicatetype=Crossvalidate","responsecurves=TRUE","writeplotdata=TRUE","jackknife=TRUE","threshold=TRUE"))
+gg.Model <- maxent(WorldClim.vif_dc, gg.loc, a=BG.lonlat.t, factors="landcover.type")
+
+gg.Pred <- predict(gg.Model, WorldClim.vif_dc)
+gg.b.Pred<-gg.Pred
+gg.b.Pred[gg.b.Pred[]<0.278]=0
+gg.b.Pred[gg.b.Pred[]>=0.278]=1
+# make a new dataframe with just the coordinates for our ochgrence data
+hg.loc<-cbind(hg.check$long,hg.check$lat)
+# withold 25% of the data for testing the model
+#fold <- kfold(hg.loc, k=4)
+#testData <- hg.loc[fold == 1, ]
+#trainData <- hg.loc[fold != 1, ]
+# fit the maxent model
+hg.Model <- maxent(WorldClim.cb, hg.loc, a=BG.latlon.r, factors="landcover.type",args=c("replicates=10","replicatetype=Bootstrap","responsecurves=TRUE","writeplotdata=TRUE","jackknife=TRUE"))
+hg.Model <- maxent(paren.par, hg.loc, a=randomPoints(WorldClim.cb$bio1,10000),
+ factors="layer",args=c("replicates=10","replicatetype=Bootstrap","responsecurves=TRUE","writeplotdata=TRUE","jackknife=TRUE"))
+hg.Model <- maxent(WorldClim.vif, hg.loc, a=BG.lonlat.t, factors="landcover.type")
+# plot the importance of each variable
+plot(hg.Model, main="Glaucous-winged Gulls Model")
+# plot response cruves
+response(hg.Model)
+# predict hgrent distributions
+hg.Pred <- predict(hg.Model, WorldClim.vif)
+hg.b.Pred<-hg.Pred
+hg.b.Pred[hg.b.Pred[]<0.252]=0
+hg.b.Pred[hg.b.Pred[]>=0.252]=1
+
+# make a new dataframe with just the coordinates for our ocwgrence data
+wg.loc<-cbind(wg.check$long,wg.check$lat)
+# withold 20% of the data for testing the model
+fold <- kfold(wg.loc, k=4)
+testData <- wg.loc[fold == 1, ]
+trainData <- wg.loc[fold != 1, ]
+
+wg.Model <- maxent(WorldClim.cb, wg.loc, a=randomPoints(WorldClim.cb$bio1,10000), factors="landcover.type",args=c("replicates=10","replicatetype=Bootstrap","responsecurves=TRUE","writeplotdata=TRUE","jackknife=TRUE"))
+wg.Model <- maxent(WorldClim.vif, wg.loc, a=BG.lonlat, factors="landcover.type")
+wg.t.Model <- maxent(WorldClim.vif, wg.loc, a=BG.lonlat.t, factors="landcover.type")
+
+# plot the importance of each variable
+plot(wg.Model, main="Glaucous-winged Gulls Model")
+# plot response cruves
+response(wg.Model)
+# predict wgrent distributions
+
+wg.Pred <- predict(wg.Model, WorldClim.vif)
+wg.b.Pred<-wg.Pred
+wg.b.Pred[wg.b.Pred[]<0.221]=0
+wg.b.Pred[wg.b.Pred[]>=0.221]=1
+
+plot(gg.Pred, main="predicted Glaucous-winged Gulls distribution",legend.args=list("possibility\nof occrance"))
+plot(gg.b.Pred, main="predicted Glaucous-winged Gulls distribution",legend.args=list("possibility\nof occrance"))
+plot(gg.b.Pred, main="predicted Glaucous-winged Gulls distribution",legend.args=list("possibility\nof occrance"))
+points(gg.check$long,gg.check$lat,col=alpha("#66c2a5",0.8),cex=0.5,pch=3)
+plot(wg.Pred, main="predicted Western Gulls distribution",legend.args=list("possibility\nof occrance"))
+plot(wg.b.Pred, main="predicted Western Gulls distribution",legend.args=list("possibility\nof occrance"))
+plot(wg.b.Pred, main="predicted Western Gulls distribution",legend.args=list("possibility\nof occrance"))
+points(wg.check$long,wg.check$lat,col=alpha("#8da0cb",0.8),cex=0.5,pch=3)
+plot(hg.Pred, main="predicted Hybrid Gulls distribution",legend.args=list("possibility\nof occrance"))
+plot(hg.b.Pred, main="predicted Hybrid Gulls distribution",legend.args=list("possibility\nof occrance"))
+plot(hg.b.Pred, main="predicted Hybrid Gulls distribution",legend.args=list("possibility\nof occrance"))
+points(hg.check$long,hg.check$lat,col=alpha("#fc8d62",0.8),cex=0.5,pch=3)
+```
+# plot the importance of each variable
+```{r glaucous-winged gull maxent}
+
+gg.Model <- maxent(WorldClim.vif, gg.loc, a=BG.lonlat, factors="landcover.type")
+# plot the importance of each variable
+plot(gg.Model, main="Glaucous-winged Gulls Model")
+# plot response cruves
+response(gg.Model)
+# predict ggrent distributions
+# plot the predicted ggrent distribution
+plot(gg.Pred, main="predicted Glaucous-winged Gulls distribution",legend.args=list("possibility\nof occrance"))
+plot(gg.b.Pred, main="predicted Glaucous-winged Gulls distribution",legend.args=list("possibility\nof occrance"))
+points(gg.check$long,gg.check$lat,col=alpha("#66c2a5",0.8),cex=0.5)
+# generate background sites
+gg.background=randomPoints(WorldClim.cb,10000)
+# extract environmental data at these sites
+WorldClim.bg=raster::extract(WorldClim.cb,gg.background,df=TRUE)
+# check for missing data
+any(is.na(WorldClim.bg))
+# combine extracted environmental data with background site coordinates
+# rename coordinates to "lat" and "lon"
+gg.background.check=cbind(gg.background,WorldClim.bg)
+# plot mean annual temperature with the background sites
+plot(WorldClim.cb$bio1, main="annual temperature with background points",legend.args=list("Celsius degree"))
+points(gg.background)
+# partition data into 5 groups for cross-validation
+# here randomBg is the data frame with environmental data at the background sites
+randomBgFold <- kfold(gg.background, k = 5)
+# evaluate model
+gg.modelEval <- evaluate(gg.Model, p = testData, a = gg.background[randomBgFold == 1, 1:2], 
+                      x = WorldClim.cb)
+# calculate thresholds
+thres=threshold(gg.modelEval)
+# pick the threshold that equalizes sensitivity and specificity
+gg.EqualSeSpThreshold=thres$equal_sens_spec
+# calculate sensitivity
+# we need to extract the data from our predicted model at our observation locations so we 
+# can check if the model outputs a value > our threshold at these known presence points
+# (aka we are checking for true positives)
+# we'll work only with the first k-fold group, so we're using the test data
+gg.PredPres <- raster::extract(gg.Pred, testData)
+# Our sensitivity is the true positive RATE, so what proportion of our observation 
+# points are at or above our presence threshold?
+gg.Sen <- sum(gg.PredPres >= gg.EqualSeSpThreshold) / length(gg.PredPres)
+gg.Sen
+# calculate specificity
+# we need to extract the data from our predicted model at our background points, because they
+# are our "absence" points.
+# again, we are only working with the first k-fold group
+gg.PredAbs<-raster::extract(gg.Pred,gg.background)
+gg.Sep<-sum(gg.PredAbs<gg.EqualSeSpThreshold)/ length(gg.PredAbs)
+gg.Sep
+# Our specificity is our true negative rate, so what proportion of our background 
+# points were below our presence threshold?
+plot(gg.modelEval, 'ROC')
+# get the AUC value
+AUC <- gg.modelEval@auc
+
+gg.Pred.point<-rasterToPoints(gg.Pred)
+gg.Pred.point<-data.frame(gg.Pred.point)
+p1<-ggplot()+
+  geom_raster(data=gg.Pred.point, aes(x = x, y = y, fill = layer))+
+  coord_sf(xlim = extent(gg.Pred.point)[1:2],
+           ylim = extent(gg.Pred.point)[3:4], expand = 0)+
+  scale_fill_gradientn(colours=brewer.pal(7,"YlGn"))+
+  theme_bw()+
+  labs(x="Glaucous-winged Gulls",y="",fill="possibility\nof occurrance")
+
+hg.Pred.point<-rasterToPoints(hg.Pred)
+hg.Pred.point<-data.frame(hg.Pred.point)
+p2<-ggplot()+
+  geom_raster(data=hg.Pred.point, aes(x = x, y = y, fill = layer))+
+  coord_sf(xlim = extent(hg.Pred.point)[1:2],
+           ylim = extent(hg.Pred.point)[3:4], expand = 0)+
+  scale_fill_gradientn(colours=brewer.pal(7,"YlGn"))+
+  theme_bw()+
+  labs(x="Hybrids",y="",fill="possibility\nof occurrance")
+
+wg.Pred.point<-rasterToPoints(wg.Pred)
+wg.Pred.point<-data.frame(wg.Pred.point)
+p3<-ggplot()+
+  geom_raster(data=wg.Pred.point, aes(x = x, y = y, fill = layer))+
+  coord_sf(xlim = extent(wg.Pred.point)[1:2],
+           ylim = extent(wg.Pred.point)[3:4], expand = 0)+
+  scale_fill_gradientn(colours=brewer.pal(7,"YlGn"))+
+  theme_bw()+
+ labs(x="Western Gulls",y="",fill="possibility\nof occurrance")
+
+p<-ggarrange(p1,p2,p3,labels=c("A","B","C"),ncol=3,nrow=1,common.legend=TRUE,legend="bottom")
+```
+```{r hybrid gull maxent}
+cb.par=stack(wg.par,gg.par,paren.par)
+paren.b.Pred=wg.b.Pred+gg.b.Pred
+
+names(cb.par)<-c("wg.par","gg.par","paren.par")
+cb.Pred=stack(paren.b.Pred,WorldClim.vif)
+hg.Model.1 <- maxent(cb.Pred, hg.loc, a=BG.lonlat,factors=c("landcover.type","layer")) #factors=c("wg.par","gg.par","paren.par"))
+# plot the importance of each variable
+plot(hg.Model.1, main="Hybrid Gull's Model")
+# plot response cruves
+response(hg.Model.1)
+# predict hgrent distributions
+hg.Pred <- predict(hg.Model.1, cb.Pred)
+# plot the predicted hgrent distribution
+plot(hg.Pred, main="predicted Hybrid Gulls distribution",legend.args=list("possibility\nof occrance"))
+points(hg.check$`hybgul$longitude`,hg.check$`hybgul$latitude`)
+
+gg.b.Pred.2<-gg.b.Pred
+gg.b.Pred.2[gg.b.Pred.2[]==1]=2
+paren.b.Pred=gg.b.Pred.2+wg.b.Pred
+paren.b.overlap<-paren.b.Pred
+paren.b.overlap[paren.b.overlap[]==1]=0
+paren.b.overlap[paren.b.overlap[]==2]=0
+plot(paren.b.overlap+hg.b.Pred)
+
+# generate background sites
+hg.background=randomPoints(WorldClim.cb,10000)
+# extract environmental data at these sites
+WorldClim.bg=raster::extract(WorldClim.cb,hg.background,df=TRUE)
+# check for missing data
+any(is.na(WorldClim.bg))
+# combine extracted environmental data with background site coordinates
+# rename coordinates to "lat" and "lon"
+hg.background.check=cbind(hg.background,WorldClim.bg)
+hg.background.check=hg.background.check[!is.na(hg.background.check$landcover.type),]
+hg.background=cbind(lon=hg.background.check$x,lat=hg.background.check$y)
+# plot mean annual temperature with the background sites
+plot(WorldClim.cb$bio1, main="annual temperature with background points",legend.args=list("Celsius degree"))
+points(hg.background)
+# partition data into 5 groups for cross-validation
+# here randomBg is the data frame with environmental data at the background sites
+randomBgFold <- kfold(hg.background, k = 5)
+# evaluate model
+hg.modelEval <- evaluate(hg.Model, p = testData, a = hg.background[randomBgFold == 1, 1:2], 
+                      x = WorldClim.cb)
+# calculate thresholds
+thres=threshold(hg.modelEval)
+# pick the threshold that equalizes sensitivity and specificity
+hg.EqualSeSpThreshold=thres$equal_sens_spec
+# calculate sensitivity
+# we need to extract the data from our predicted model at our observation locations so we 
+# can check if the model outputs a value > our threshold at these known presence points
+# (aka we are checking for true positives)
+# we'll work only with the first k-fold group, so we're using the test data
+hg.PredPres <- raster::extract(hg.Pred, testData)
+# Our sensitivity is the true positive RATE, so what proportion of our observation 
+# points are at or above our presence threshold?
+hg.Sen <- sum(hg.PredPres >= hg.EqualSeSpThreshold) / length(hg.PredPres)
+hg.Sen
+# calculate specificity
+# we need to extract the data from our predicted model at our background points, because they
+# are our "absence" points.
+# again, we are only working with the first k-fold group
+hg.PredAbs<-raster::extract(hg.Pred,hg.background)
+hg.Sep<-sum(hg.PredAbs<hg.EqualSeSpThreshold)/ length(hg.PredAbs)
+hg.Sep
+# Our specificity is our true negative rate, so what proportion of our background 
+# points were below our presence threshold?
+plot(hg.modelEval, 'ROC')
+# get the AUC value
+AUC <- hg.modelEval@auc
+```
+```{r western gull maxent}
+
+# plot the importance of each variable
+
+# fit the maxent model
+wg.Model <- maxent(WorldClim.cb,a=randomPoints(WorldClim.cb$bio1,10000), wg.loc,factors="landcover.type")
+# plot the importance of each variable
+plot(wg.Model, main="Western Gulls Model")
+# plot response cruves
+response(wg.Model)
+# predict wgrent distributions
+wg.Pred <- predict(wg.Model, WorldClim.cb)
+# plot the predicted wgrent distribution
+plot(wg.Pred, main="predicted Western Gulls distribution",legend.args=list("possibility\nof occrance"))
+points(wg.check$`wesgul$longitude`,wg.check$`wesgul$latitude`)
+
+# generate background sites
+wg.background=randomPoints(WorldClim.cb,10000)
+# extract environmental data at these sites
+WorldClim.bg=raster::extract(WorldClim.cb,wg.background,df=TRUE)
+# check for missing data
+any(is.na(WorldClim.bg))
+# combine extracted environmental data with background site coordinates
+# rename coordinates to "lat" and "lon"
+wg.background.check=cbind(wg.background,WorldClim.bg)
+wg.background.check=wg.background.check[!is.na(wg.background.check$landcover.type),]
+wg.background=cbind(lon=wg.background.check$x,lat=wg.background.check$y)
+# plot mean annual temperature with the background sites
+plot(WorldClim.cb$bio1, main="annual temperature with background points",legend.args=list("Celsius degree"))
+points(wg.background)
+# partition data into 5 groups for cross-validation
+# here randomBg is the data frame with environmental data at the background sites
+randomBgFold <- kfold(wg.background, k = 5)
+# evaluate model
+wg.modelEval <- evaluate(wg.Model, p = testData, a = wg.background[randomBgFold == 1, 1:2], 
+                      x = WorldClim.cb)
+# calculate thresholds
+thres=threshold(wg.modelEval)
+# pick the threshold that equalizes sensitivity and specificity
+wg.EqualSeSpThreshold=thres$equal_sens_spec
+# calculate sensitivity
+# we need to extract the data from our predicted model at our observation locations so we 
+# can check if the model outputs a value > our threshold at these known presence points
+# (aka we are checking for true positives)
+# we'll work only with the first k-fold group, so we're using the test data
+wg.PredPres <- raster::extract(wg.Pred, testData)
+# Our sensitivity is the true positive RATE, so what proportion of our observation 
+# points are at or above our presence threshold?
+wg.Sen <- sum(wg.PredPres >= wg.EqualSeSpThreshold) / length(wg.PredPres)
+wg.Sen
+# calculate specificity
+# we need to extract the data from our predicted model at our background points, because they
+# are our "absence" points.
+# again, we are only working with the first k-fold group
+wg.PredAbs<-raster::extract(wg.Pred,wg.background)
+wg.Sep<-sum(wg.PredAbs<wg.EqualSeSpThreshold)/ length(wg.PredAbs)
+wg.Sep
+# Our specificity is our true negative rate, so what proportion of our background 
+# points were below our presence threshold?
+plot(wg.modelEval, 'ROC')
+# get the AUC value
+AUC <- wg.modelEval@auc
+```
+
+

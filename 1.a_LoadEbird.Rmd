@@ -1,0 +1,145 @@
+---
+title: "Load Ebird Occurrence Data"
+author: "Xuewen Geng"
+date: "11/25/2021"
+output: html_document
+---
+
+#Data Preparatiojn
+
+```{r Load Library, cache=TRUE}
+# Load all the required packages here:
+library("dismo")
+library("raster")
+library("maptools")
+library("ENMTools")
+library("usdm")
+library("auk")
+library("ggplot2")
+library("spThin")
+library("ggfortify")
+library("ggpubr")
+library("RColorBrewer")
+library("elevatr")
+library("rJava")
+library("terra")
+```
+
+```{r load ebird species occurrence points}
+
+#Set parameters for data cleaning
+#set years of interest parameter
+years=2010:2023
+#set breeding season (June, July) as date parameter
+dates=c("*-06-01","*-07-31")
+#set country ranges, limited to North America
+countries=c("US","CA","Mexico")
+#set observation duration as 0 min to 300 min
+durations=c(0,300)
+#set distance as 0 km to 5 km
+distances=c(0,5)
+#set protocol as Stationary and Traveling
+protocols=c("Stationary", "Traveling")
+
+#Load ebird data using auk pakage
+#Load glaucous-winged gulls dataset downloaded through ebird basic dataset
+glwgul<-"input/ebd_glwgul_relMar-2023.txt"
+#set output file path
+f_out <- "data/ebd_filtered_glwgul.txt"
+#set the set of filters using auk
+gg.filters <- auk_ebd(glwgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_complete
+gg.filtered<- auk_filter(gg.filters, file = f_out,overwrite=TRUE)
+#filter and load the filtered dataset
+glwgul <- read_ebd(gg.filtered)
+#Limit number of observers lower than 10 people
+glwgul=glwgul[which(glwgul$number_observers<=10),]
+
+#Load western gulls dataset, same as above
+wesgul<-"input/ebd_wesgul_relMar-2023.txt"
+f_out <- "data/ebd_filtered_wesgul.txt"
+wg.filters <- auk_ebd(wesgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_complete()
+# can use keep= parameter to select columns of interest
+wg.filtered<- auk_filter(wg.filters, file = f_out,overwrite=TRUE)
+wesgul <- read_ebd(wg.filtered)
+wesgul=wesgul[which(wesgul$number_observers<=10),]
+#wesgul=subset.data.frame(wesgul,select=c("scientific_name","latitude","longitude","observation_date"))
+
+hybgul<-"input/ebd_x00051_relMar-2023.txt"
+f_out <- "data/ebd_filtered_hybgul.txt"
+hg.filters <- auk_ebd(hybgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_complete()
+hg.filtered<- auk_filter(hg.filters, file = f_out,overwrite=TRUE)
+#txt <- read.table("data/ebd_filtered_hybgul.txt", sep="\t",fill=TRUE,header=TRUE)
+#write.csv(txt, "data/ebd_filtered_hybgul.csv", row.names=FALSE, quote=FALSE)
+#Read_ebd is not working for the hybrids, potentially because hybrid dataset lack the checklist colum so read_ebd can't work properly
+#hybgul <- read_ebd(filtered)
+#See below that I use read.csv() to read the output filtered file directly, however, data types of several columns need to be changed.
+hybgul<-read.csv("data/ebd_filtered_hybgul.csv",header=TRUE,sep=",")
+#can use subset.data.frame to only keep columns that are needed
+#hybgul=subset.data.frame(hybgul,select=c("SCIENTIFIC.NAME","LATITUDE","LONGITUDE","OBSERVATION.DATE"))
+hybgul=hybgul[which(hybgul$NUMBER.OBSERVERS<=10),]
+hybgul$latitude<-as.numeric(hybgul$LATITUDE)
+hybgul$longitude<-as.numeric(hybgul$LONGITUDE)
+hybgul$observation_date<-as.Date(hybgul$OBSERVATION.DATE)
+```
+```{r remove outliers}
+#remove outliers occurrence points 
+#by remove occurrence points in states that contain less than 50 occurrence points
+#For Glaucous-winged gulls
+state=table(glwgul$state)
+gg.state=c()
+for(i in 1:length(state)){
+  if(state[i]>50)
+    gg.state<-c(gg.state,names(state[i]))
+}
+glwgul<-glwgul[which(glwgul$state%in%gg.state),]
+#For Western gulls
+state=table(wesgul$state)
+wg.state=c()
+for(i in 1:length(state)){
+  if(state[i]>50)
+    wg.state<-c(wg.state,names(state[i]))
+}
+wesgul<-wesgul[which(wesgul$state%in%wg.state),]
+#For Hybrid gulls
+state=table(hybgul$STATE)
+hg.state=c()
+for(i in 1:length(state)){
+  if(state[i]>50)
+    hg.state<-c(hg.state,names(state[i]))
+}
+hybgul<-hybgul[which(hybgul$STATE%in%hg.state),]
+```
+```{r test plot}
+plot(wrld_simpl,main="Distribution of gulls after data filtering")
+points(glwgul$longitude,glwgul$latitude,col=alpha("#66c2a5",0.8),cex=0.5)
+points(wesgul$longitude,wesgul$latitude,col=alpha("#8da0cb",0.8),cex=0.5)
+points(hybgul$longitude,hybgul$latitude,col=alpha("#fc8d62",0.8),cex=0.5)
+legend("topright",c("Glaucous-winged Gull","Olympic Gull (Hybrids)", "Western Gull"),fill=c("#66c2a5","#fc8d62","#8da0cb"))
+hist(hybgul$latitude)
+hist(hybgul$longitude)
+hist(wesgul$latitude)
+hist(wesgul$longitude)
+hist(glwgul$latitude)
+hist(glwgul$longitude)
+```

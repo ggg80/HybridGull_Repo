@@ -1,0 +1,129 @@
+---
+title: "Load Ebird Occurrence Data"
+author: "Xuewen Geng"
+date: "11/25/2021"
+output: html_document
+---
+
+#Data Preparatiojn
+
+```{r Load Library, cache=TRUE}
+# Load all the required packages here:
+library("dismo")
+library("raster")
+library("maptools")
+library("ENMTools")
+library("usdm")
+library("auk")
+library("ggplot2")
+library("spThin")
+library("ggfortify")
+library("ggpubr")
+library("RColorBrewer")
+library("elevatr")
+library("rJava")
+library("terra")
+library("rgdal")
+```
+
+```{r Data filtering: set parameters}
+#Set parameters for data cleaning, based on Best Practices for Using eBird Data (Strimas-Mackey et al. 2023)
+#set years of interest parameter
+years=2010:2023
+#set breeding season (June, July) as date parameter
+dates=c("*-06-01","*-07-31")
+#set country ranges, limited to North America
+countries=c("US","CA","Mexico")
+#set observation duration as 0 min to 360 min
+durations=c(0,360)
+#set distance as 0 km to 10 km
+distances=c(0,10)
+#set protocol as Stationary and Traveling
+protocols=c("Stationary", "Traveling")
+#set starting time as 6:00-21:00
+starttime=(start_time=c("06:00","21:00"))
+#set spatial box to remove outliers in each species
+#the spatial boxes are defined by the localities of ebird occurrence point. 
+#Outliers are occurrence points that are too far away from other occurrence points. 
+bbox_gg=c(-175,36,-120,62)
+bbox_wg=c(-126,31,-114,49)
+bbox_hg=c(-129,36,-118,51)
+```
+```{r Data filtering: filtering parental species}
+#Load ebird data using auk pakage
+#Load glaucous-winged gulls dataset downloaded through ebird basic dataset
+glwgul<-"input/ebd_glwgul_relMar-2023.txt"
+#set output file path
+f_out <- "data/ebd_filtered_glwgul.txt"
+#set the set of filters using auk
+gg.filters <- auk_ebd(glwgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_gg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_complete()
+gg.filtered<- auk_filter(gg.filters, file = f_out,overwrite=TRUE)
+#filter and load the filtered dataset
+glwgul <- read_ebd(gg.filtered)
+#Limit number of observers lower than 10 people
+glwgul=glwgul[which(glwgul$number_observers<=10),]
+
+
+#Load western gulls dataset, same as above
+wesgul<-"input/ebd_wesgul_relMar-2023.txt"
+f_out <- "data/ebd_filtered_wesgul.txt"
+wg.filters <- auk_ebd(wesgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_wg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_complete()
+# can use keep= parameter to select columns of interest
+wg.filtered<- auk_filter(wg.filters, file = f_out,overwrite=TRUE)
+wesgul <- read_ebd(wg.filtered)
+wesgul=wesgul[which(wesgul$number_observers<=10),]
+
+```
+```{r Data filtering: Filtering hybrids}
+hybgul<-"input/ebd_x00051_relMar-2023.txt"
+f_out <- "data/ebd_filtered_hybgul.txt"
+hg.filters <- auk_ebd(hybgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_hg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_complete()
+hg.filtered<- auk_filter(hg.filters, file = f_out,overwrite=TRUE)
+#Read_ebd is not working for the hybrids, potentially because hybrid dataset lack the checklist colum so read_ebd can't work properly
+  #hybgul <- read_ebd(filtered)
+#See below that I use read.csv() to read the output filtered file directly, however, data types of several columns need to be changed.
+hybgul<-read.csv("data/ebd_filtered_hybgul.csv",header=TRUE,sep=",")
+#can use subset.data.frame to only keep columns that are needed
+#hybgul=subset.data.frame(hybgul,select=c("SCIENTIFIC.NAME","LATITUDE","LONGITUDE","OBSERVATION.DATE"))
+hybgul=hybgul[which(hybgul$NUMBER.OBSERVERS<=10),]
+hybgul$latitude<-as.numeric(hybgul$LATITUDE)
+hybgul$longitude<-as.numeric(hybgul$LONGITUDE)
+hybgul$observation_date<-as.Date(hybgul$OBSERVATION.DATE)
+```
+```{r test plot}
+extent=c(-175,-114,31,62)
+wrld_simpl.cp=crop(wrld_simpl,extent)
+plot(wrld_simpl.cp,main="Distribution of gulls before spatial thinning")
+points(glwgul$longitude,glwgul$latitude,col=alpha("#66c2a5",0.8),cex=0.5,pch=3)
+points(wesgul$longitude,wesgul$latitude,col=alpha("#8da0cb",0.8),cex=0.5,pch=3)
+points(hybgul$longitude,hybgul$latitude,col=alpha("#fc8d62",0.8),cex=0.5,pch=3)
+legend("bottom",box.lty=0, c("Glaucous-winged Gull","Hybrids", "Western Gull"),fill=c("#66c2a5","#fc8d62","#8da0cb"))
+
+```

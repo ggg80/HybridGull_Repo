@@ -1,0 +1,87 @@
+---
+title: "2.a_FilteringOcc"
+output: html_document
+date: "2023-07-16"
+---
+```{r filtering occurrence points without WorldClim}
+#Filtering occurrence points that are outside of the range of WorldClim data
+WorldClim.gg=raster::extract(WorldClim.cb,cbind(glwgul$longitude,glwgul$latitude),df=TRUE)
+gg.check=cbind(long=glwgul$longitude,lat=glwgul$latitude,name=glwgul$scientific_name,WorldClim.gg)
+any(is.na(gg.check))
+gg.check=gg.check[!is.na(gg.check$bio1),]
+any(is.na(WorldClim.gg))
+WorldClim.gg=WorldClim.gg[!is.na(WorldClim.gg$bio1),]
+#a result of 66697 data points
+
+WorldClim.wg=raster::extract(WorldClim.cb,cbind(wesgul$longitude,wesgul$latitude),df=TRUE)
+wg.check=cbind(long=wesgul$longitude,lat=wesgul$latitude,name=wesgul$scientific_name,WorldClim.wg)
+any(is.na(wg.check))
+wg.check=wg.check[!is.na(wg.check$bio1),]
+any(is.na(WorldClim.wg))
+WorldClim.wg=WorldClim.wg[!is.na(WorldClim.wg$bio1),]
+#a result of 81363 data points
+
+WorldClim.hg=raster::extract(WorldClim.cb,cbind(hybgul$longitude,hybgul$latitude),df=TRUE)
+hg.check=cbind(long=hybgul$longitude,lat=hybgul$latitude,name=hybgul$scientific_name,WorldClim.hg)
+any(is.na(hg.check))
+hg.check=hg.check[!is.na(hg.check$bio1),]
+any(is.na(WorldClim.hg))
+WorldClim.hg=WorldClim.hg[!is.na(WorldClim.hg$bio1),]
+#a result of 9417 data points
+```
+```{r spatial thinning}
+# perform spatial thinning on species occurrence points
+thin(gg.check,lat.col = "lat",long.col = "long",spec.col = "name",thin.par=0.5,reps=1,out.dir = "./data",out.base="glaucouswingedgull_thin")
+thin(hg.check,lat.col = "lat",long.col = "long",spec.col = "name",thin.par=0.5,reps=1,out.dir="./data",out.base="hybridgull_thin")
+thin(wg.check,lat.col = "lat",long.col = "long",spec.col = "name",thin.par=0.5,reps=1,out.dir="./data",out.base="westerngull_thin")
+
+# load spatial thinned results
+gg.t<-read.csv("./data/glaucouswingedgull_thin_thin1_new.csv",header=TRUE)
+# balance all three population sizes as 600 occurrence points
+gg.r=sample(length(gg.t$long),600)
+gg.t=gg.t[gg.r,]
+# extract environmental data at species occurrence localities
+# prepare data frames for each populations
+WorldClim.gg=raster::extract(WorldClim.cb,cbind(gg.t$long,gg.t$lat),df=TRUE)
+gg.check=cbind(long=gg.t$long,lat=gg.t$lat,WorldClim.gg)
+gg.check=subset(gg.check,select=-ID)
+
+#Perform the same steps on western gulls and hybrid gulls
+wg.t<-read.csv("./data/westerngull_thin_thin1_new.csv",header=TRUE,)
+wg.r=sample(length(wg.t$long),600)
+wg.t=wg.t[wg.r,]
+WorldClim.wg=raster::extract(WorldClim.cb,cbind(wg.t$long,wg.t$lat),df=TRUE)
+wg.check=cbind(long=wg.t$long,lat=wg.t$lat,WorldClim.wg)
+wg.check=subset(wg.check,select=-ID)
+
+hg.t<-read.csv("./data/hybridgull_thin_thin1_new.csv",header=TRUE,)
+hg.r=sample(length(hg.t$long),600)
+hg.t=hg.t[hg.r,]
+WorldClim.hg=raster::extract(WorldClim.cb,cbind(hg.t$long,hg.t$lat),df=TRUE)
+hg.check=cbind(long=hg.t$long,lat=hg.t$lat,WorldClim.hg)
+hg.check=subset(hg.check,select=-ID)
+```
+
+```{r Figure S1 plot}
+plot<-cbind(gg.check$long,gg.check$lat)
+plot<-as.data.frame(plot)
+colnames(plot)<-c("long","lat")
+plot<-rbind(plot,wg.check[,c(1,2)])
+plot<-rbind(plot,hg.check[,c(1,2)])
+plot$species<-c(rep("glaucous-winged gulls",600),rep("western gulls",600),rep("hybrid gulls",600))
+colnames(plot)<-c("longitude","latitude","species")
+
+S1.2<-ggplot()+
+  geom_polygon(data=wrld_simpl.cp.sp,aes(x=long, y=lat,group=group),fill="white",color="black")+
+  geom_point(data=plot,aes(x=longitude,y=latitude,color=species),alpha=0.5)+
+  geom_point(data=plot,aes(x=longitude,y=latitude,color=species),alpha=0.5)+
+  geom_point(data=plot,aes(x=longitude,y=latitude,color=species),alpha=0.5)+
+  ggtitle("After spatial thinning")+
+  scale_color_manual(
+    values = c("#66c2a5", "#8da0cb", "#fc8d62"),
+    breaks = c("glaucous-winged gulls", "western gulls", "hybrid gulls"),
+    limits = c("glaucous-winged gulls", "western gulls", "hybrid gulls"))+
+    theme_classic()
+S1<-ggarrange(S1.1,S1.2,labels=c("A","B"),ncol=2,nrow=1,common.legend=TRUE,legend = "bottom")
+S1
+```

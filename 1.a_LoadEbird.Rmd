@@ -1,0 +1,153 @@
+---
+title: "Load Ebird Occurrence Data"
+author: "Xuewen Geng"
+date: "11/25/2021"
+output: html_document
+---
+
+#Data Preparatiojn
+
+```{r Load Library, cache=TRUE}
+# Load all the required packages here:
+library("dismo")
+library("raster")
+library("maptools")
+library("ENMTools")
+library("usdm")
+library("auk")
+library("ggplot2")
+library("spThin")
+library("ggfortify")
+library("ggpubr")
+library("RColorBrewer")
+library("elevatr")
+library("rJava")
+library("terra")
+library("rgdal")
+```
+
+```{r Data filtering: set parameters}
+###############
+#Set Parameter#
+###############
+
+#Set parameters for data cleaning, based on Best Practices for Using eBird Data (Strimas-Mackey et al. 2023)
+#set years of interest parameter
+years=2010:2023
+#set breeding season (June, July) as date parameter
+dates=c("*-06-01","*-07-31")
+#set country ranges, limited to North America
+countries=c("US","CA")
+#set observation duration as 0 min to 360 min
+durations=c(0,360)
+#set distance as 0 km to 10 km (changed to na, only include stationary data)
+distances=c(0,0.03)
+#set protocol as Stationary and Traveling
+protocols=c("Stationary")
+#set starting time as 6:00-21:00
+starttime=(start_time=c("06:00","21:00"))
+#set spatial box to remove outliers in each species
+#the spatial boxes are defined by the localities of ebird occurrence point. 
+#Outliers are occurrence points that are too far away from other occurrence points. 
+bbox_gg=c(-175,37,-120,62)
+bbox_wg=c(-126,37,-114,49)
+bbox_hg=c(-129,37,-118,51)
+```
+```{r Data filtering: filtering parental species}
+################
+#Data Filtering#
+################
+
+#Load ebird data using auk pakage
+#Load glaucous-winged gulls dataset downloaded through ebird basic dataset
+glwgul<-"input/ebd_glwgul_relMar-2023.txt"
+#set output file path
+f_out <- "data/ebd_filtered_glwgul.txt"
+#set the set of filters using auk
+gg.filters <- auk_ebd(glwgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_gg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+#  auk_breeding()%>%
+  auk_complete()
+gg.filtered<- auk_filter(gg.filters, file = f_out,rollup=TRUE,overwrite=TRUE)
+#filter and load the filtered dataset
+glwgul <- read_ebd(gg.filtered)
+#Limit number of observers lower than 10 people
+glwgul=glwgul[which(glwgul$number_observers<=10),]
+#A total of 17061
+
+#Load western gulls dataset, same as above
+wesgul<-"input/ebd_wesgul_relMar-2023.txt"
+f_out <- "data/ebd_filtered_wesgul.txt"
+wg.filters <- auk_ebd(wesgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_wg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+#  auk_breeding()%>%
+  auk_complete()
+# can use keep= parameter to select columns of interest
+wg.filtered<- auk_filter(wg.filters, file = f_out,rollup=TRUE,overwrite=TRUE)
+wesgul <- read_ebd(wg.filtered,rollup=FALSE)
+wesgul=wesgul[which(wesgul$number_observers<=10),]
+#A total of 9297 points
+```
+```{r Data filtering: Filtering hybrids}
+################
+#Data Filtering#
+################
+
+hybgul<-"input/ebd_x00051_relMar-2023.txt"
+f_out <- "data/ebd_filtered_hybgul.txt"
+hg.filters <- auk_ebd(hybgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_hg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+#  auk_breeding()%>%
+  auk_complete()
+hg.filtered<- auk_filter(hg.filters, file = f_out, overwrite=TRUE)
+hybgul<-read_ebd(hg.filtered,rollup=FALSE)
+hybgul=hybgul[which(hybgul$number_observers<=10),]
+#A total of 1897 points
+```
+```{r Figure S1 plot}
+#Plot before spatial thinning species distribution
+extent=c(-175,-114,36,62)
+wrld_simpl.cp=crop(wrld_simpl,extent)
+wrld_simpl.cp.sp<-fortify(wrld_simpl.cp,region="ISO3")
+
+plot<-cbind(glwgul$longitude,glwgul$latitude)
+plot<-as.data.frame(plot)
+colnames(plot)<-c("longitude","latitude")
+plot<-rbind(plot,wesgul[,c(31,30)])
+plot<-rbind(plot,hybgul[,c(31,30)])
+plot$species<-c(rep("glaucous-winged gulls",length(glwgul$checklist_id)),rep("western gulls",length(wesgul$checklist_id)),rep("hybrid gulls",length(hybgul$checklist_id)))
+S1.1<-ggplot()+
+  geom_polygon(data=wrld_simpl.cp.sp,aes(x=long, y=lat,group=group),fill="white",color="black")+
+  geom_point(data=plot,aes(x=longitude,y=latitude,color=species),alpha=0.5)+
+  geom_point(data=plot,aes(x=longitude,y=latitude,color=species),alpha=0.5)+
+  geom_point(data=plot,aes(x=longitude,y=latitude,color=species),alpha=0.5)+
+  ggtitle("Before spatial thinning")+
+  scale_color_manual(
+    values = c("#66c2a5", "#8da0cb", "#fc8d62"),
+    breaks = c("glaucous-winged gulls", "western gulls", "hybrid gulls"),
+    limits = c("glaucous-winged gulls", "western gulls", "hybrid gulls"))+
+    theme_classic()
+
+
+```

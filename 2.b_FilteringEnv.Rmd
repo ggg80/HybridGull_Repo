@@ -1,0 +1,34 @@
+---
+title: "2.b_FilteringEnv"
+output: html_document
+date: "2023-07-16"
+---
+```{r correlation}
+###########################
+#Evaluate data correlation#
+###########################
+
+#extract environmental data at species occurrence localities
+#label for further analyses
+WorldClim.test=subset(WorldClim.cb,c("bio1","bio2","bio4","bio12","bio15","temp.subpolar.needleleaf","temp.subpolar.grass","wetland","cropland","barrenland","urban","water","snow.ice","temp.subpolar.broadleaf","mixed.forest","temp.subpolar.shrub","d.coastline","elevation"))
+WorldClim.gg=raster::extract(WorldClim.test,cbind(glwgul$longitude,glwgul$latitude),df=TRUE)
+WorldClim.wg=raster::extract(WorldClim.test,cbind(wesgul$longitude,wesgul$latitude),df=TRUE)
+WorldClim.hg=raster::extract(WorldClim.test,cbind(hybgul$longitude,hybgul$latitude),df=TRUE)
+WorldClim.gg=subset(WorldClim.gg,select=-ID)
+WorldClim.wg=subset(WorldClim.wg,select=-ID)
+WorldClim.hg=subset(WorldClim.hg,select=-ID)
+```
+```{r test vif}
+#test for vif
+vifstep(WorldClim.gg,th=10)
+vifcor(WorldClim.gg,th=0.9)
+vifstep(WorldClim.wg,th=10)
+vifcor(WorldClim.wg,th=0.9)
+vifstep(WorldClim.hg,th=10)
+vifcor(WorldClim.hg,th=0.9)
+```
+```{r exclude high-correlated}
+# exclude layers that are highly correlated with each other
+
+WorldClim.vif=subset(WorldClim.cb,c("bio1","bio2","bio4","bio12","temp.subpolar.needleleaf","temp.subpolar.grass","wetland","urban","cropland","barrenland","snow.ice","temp.subpolar.broadleaf","mixed.forest","temp.subpolar.shrub","d.coastline","elevation"))
+```

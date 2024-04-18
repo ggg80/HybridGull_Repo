@@ -1,0 +1,172 @@
+---
+title: "Niche_Tests"
+author: "Xuewen Geng"
+date: "4/19/2022"
+output: html_document
+---
+# ENMTools
+```{r create ENMTools species, cache=TRUE}
+########################################
+#create enmtool species for niche tests#
+########################################
+
+#create individual species dataset and store species occurrence points, background points and species name 
+gg.enmsp<-enmtools.species()
+gg.enmsp$species.name<-"Glaucous-winged Gull"
+gg.lonlat=cbind(gg.check$long,gg.check$lat)
+colnames(gg.lonlat)<-c("Longitude","Latitude")
+gg.enmsp$presence.points<-gg.lonlat
+gg.enmsp$background.points<-BG.lonlat
+check.species(gg.enmsp)
+
+wg.enmsp<-enmtools.species()
+wg.enmsp$species.name<-"Western Gull"
+wg.lonlat=cbind(wg.check$long,wg.check$lat)
+colnames(wg.lonlat)=c("Longitude","Latitude")
+wg.enmsp$presence.points<-wg.lonlat
+wg.enmsp$background.points<-BG.lonlat
+check.species(wg.enmsp)
+
+hg.enmsp<-enmtools.species()
+hg.enmsp$species.name<-"The Hybrids"
+hg.lonlat=cbind(hg.check$long,hg.check$lat)
+colnames(hg.lonlat)=c("Longitude","Latitude")
+hg.enmsp$presence.points<-hg.lonlat
+hg.enmsp$background.points<-BG.lonlat
+check.species(hg.enmsp)
+
+```
+#Niche Tests
+```{r perform niche tests ,cache=TRUE}
+WorldClim.sr<-rast(WorldClim.vif)
+########################
+#Perform Identity Tests#
+########################
+gg.hg.identity.test=identity.test(gg.enmsp,hg.enmsp,WorldClim.sr,type="mx",bg.source= "points",low.memory = TRUE)
+wg.hg.identity.test=identity.test(wg.enmsp,hg.enmsp,WorldClim.sr,type="mx",bg.source= "points",low.memory = TRUE)
+gg.wg.identity.test=identity.test(wg.enmsp,gg.enmsp,WorldClim.sr,type="mx",bg.source= "points",low.memory = TRUE)
+####################################
+#Perform background similarity test#
+####################################
+gg.hg.bg.test=background.test (gg.enmsp,hg.enmsp,WorldClim.sr,type="mx",bg.source= "points",test.type="symmetric",low.memory = TRUE)
+wg.hg.bg.test=background.test(wg.enmsp,hg.enmsp,WorldClim.sr,type="mx",bg.source= "points",test.type="symmetric",low.memory = TRUE)
+gg.wg.bg.test=background.test(wg.enmsp,gg.enmsp,WorldClim.sr,type="mx",bg.source= "points",test.type="symmetric",low.memory = TRUE)
+###################################
+#Perform blob range-breaking tests#
+###################################
+wg.hg.rb.blob=rangebreak.blob(wg.enmsp,hg.enmsp,bg.source= "points",WorldClim.sr,type = "mx",low.memory=TRUE)
+gg.hg.rb.blob=rangebreak.blob(gg.enmsp,hg.enmsp,bg.source= "points",WorldClim.sr,type = "mx",low.memory=TRUE)
+gg.wg.rb.blob=rangebreak.blob(gg.enmsp,wg.enmsp,bg.source= "points",WorldClim.sr,type = "mx",low.memory=TRUE)
+```
+```{r plot Figure 3}
+#1. For glaucous-winged gulls vs. western gulls
+#Extract all replicates' indices from the three tests
+plot.gg.wg<-as.data.frame(gg.wg.bg.test$reps.overlap[,1:2])
+plot.gg.wg<-rbind(plot.gg.wg,gg.wg.identity.test$reps.overlap[2:100,1:2])
+plot.gg.wg<-rbind(plot.gg.wg,gg.wg.rb.blob$reps.overlap[2:100,1:2])
+plot.gg.wg$test<-c("empirical result", rep("background similarity test", 99),rep("niche identity test",99),rep("range-breaking test",99))
+#Extract the empirical indices
+empirical.gg.wg<-plot.gg.wg[1,]
+plot.gg.wg<-plot.gg.wg[-1,]
+
+#Plot each indice comparision
+gg.wg.D<-ggplot(data = plot.gg.wg)+
+  geom_histogram(aes(D,color=test,fill=test),alpha=0.5,position="identity",binwidth = 0.02)+
+  geom_vline(aes(xintercept=empirical.gg.wg$D),color="black",linetype="dashed",size=1)+
+  ggtitle("Glaucous-winged gulls vs. Western gulls")+
+  scale_fill_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  scale_color_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  theme_light()
+
+gg.wg.I<-ggplot(data = plot.gg.wg)+
+  geom_histogram(aes(I,color=test,fill=test),alpha=0.5,position="identity",binwidth=0.02)+
+  geom_vline(aes(xintercept=empirical.gg.wg$I),color="black",linetype="dashed",size=1)+  
+  scale_fill_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  scale_color_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  theme_light()
+
+#2. Repeat the same progress for western gulls and glaucous-winged gulls vs. the hybrids
+plot.wg.hg<-as.data.frame(wg.hg.bg.test$reps.overlap[,1:2])
+plot.wg.hg<-rbind(plot.wg.hg,wg.hg.identity.test$reps.overlap[2:100,1:2])
+plot.wg.hg<-rbind(plot.wg.hg,wg.hg.rb.blob$reps.overlap[2:100,1:2])
+plot.wg.hg$test<-c("empirical result", rep("background similarity test", 99),rep("niche identity test",99),rep("range-breaking test",99))
+empirical.wg.hg<-plot.wg.hg[1,]
+plot.wg.hg<-plot.wg.hg[-1,]
+wg.hg.D<-ggplot(data = plot.wg.hg)+
+  geom_histogram(aes(D,color=test,fill=test),alpha=0.5,position="identity",binwidth = 0.02)+
+  geom_vline(aes(xintercept=empirical.wg.hg$D),color="black",linetype="dashed",size=1)+
+  ggtitle("Western gulls vs. Hybrid gulls")+  scale_fill_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  scale_color_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  theme_light()
+
+wg.hg.I<-ggplot(data = plot.wg.hg)+
+  geom_histogram(aes(I,color=test,fill=test),alpha=0.5,position="identity",binwidth=0.02)+
+  geom_vline(aes(xintercept=empirical.wg.hg$I),color="black",linetype="dashed",size=1)+
+    scale_fill_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  scale_color_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  theme_light()
+
+#plot.gg.hg<-as.data.frame(gg.hg.bg.test$reps.overlap[,1:2])
+plot.gg.hg<-gg.hg.bg.test
+plot.gg.hg<-rbind(plot.gg.hg,gg.hg.identity.test$reps.overlap[2:100,1:2])
+plot.gg.hg<-rbind(plot.gg.hg,gg.hg.rb.blob$reps.overlap[2:100,1:2])
+plot.gg.hg$test<-c("empirical result", rep("background similarity test", 99),rep("niche identity test",99),rep("range-breaking test",99))
+empirical.gg.hg<-plot.gg.hg[1,]
+
+plot.gg.hg<-plot.gg.hg[-1,]
+gg.hg.D<-ggplot(data = plot.gg.hg)+
+  geom_histogram(aes(D,color=test,fill=test),alpha=0.5,position="identity",binwidth = 0.02)+
+  geom_vline(aes(xintercept=empirical.gg.hg$D),color="black",linetype="dashed",size=1)+
+  ggtitle("Glaucous-winged gulls vs. Hybrid gulls")+
+    scale_fill_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  scale_color_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  theme_light()
+
+gg.hg.I<-ggplot(data = plot.gg.hg)+
+  geom_histogram(aes(I,color=test,fill=test),alpha=0.5,position="identity",binwidth=0.02)+
+  geom_vline(aes(xintercept=empirical.gg.hg$I),color="black",linetype="dashed",size=1)+
+    scale_fill_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  scale_color_manual(
+    values = c("cornflowerblue", "forestgreen",  "coral"),
+    breaks = c("niche identity test", "background similarity test", "range-breaking test"),
+   limits = c("niche identity test", "background similarity test", "range-breaking test"))+
+  theme_light()
+
+#Combine and rearrange the plots
+DI<-ggarrange(gg.hg.D,wg.hg.D,gg.wg.D,gg.hg.I,wg.hg.I,gg.wg.I,labels=c("A","B","C","","",""),ncol=3,nrow=2,common.legend=TRUE,legend = "bottom",heights = c(1,1))
+DI
+
+```

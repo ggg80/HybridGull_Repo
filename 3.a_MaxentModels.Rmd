@@ -1,0 +1,74 @@
+---
+title: "2.a_MaxentModels"
+output: html_document
+date: "2023-07-16"
+---
+```{r maxent 10 replicates}
+#Prepare datasets for maxent models
+gg.lonlat=cbind(gg.check$long,gg.check$lat)
+#Build 10 replicates maxent model
+gg.Model <- maxent(WorldClim.vif, gg.lonlat, a=BG.lonlat,  args=c("replicates=10","responsecurves=TRUE","writeplotdata=TRUE","jackknife=TRUE"),path=".//output//glwgul_maxent")
+wg.lonlat=cbind(wg.check$long,wg.check$lat)
+wg.Model <- maxent(WorldClim.vif, wg.lonlat, a=BG.lonlat, args=c("replicates=10","responsecurves=TRUE","writeplotdata=TRUE","jackknife=TRUE"),path=".//output//wesgul_maxent")
+hg.lonlat=cbind(hg.check$long,hg.check$lat)
+hg.Model <- maxent(WorldClim.vif, hg.lonlat, a=BG.lonlat, args=c("replicates=10","responsecurves=TRUE","writeplotdata=TRUE","jackknife=TRUE"),path=".//output//hybgul_maxent")
+```
+
+```{r maxent prediction model}
+gg.ebird.Model <- maxent(WorldClim.vif, gg.lonlat, a=BG.lonlat)
+hg.ebird.Model <- maxent(WorldClim.vif, hg.lonlat, a=BG.lonlat)
+wg.ebird.Model <- maxent(WorldClim.vif, wg.lonlat, a=BG.lonlat)
+```
+```{r maxent prediction}
+gg.Pred <- predict(gg.ebird.Model, WorldClim.vif)
+gg.b.Pred<-gg.Pred
+gg.b.Pred[gg.b.Pred[]<gg.ebird.Model@results["Equal.training.sensitivity.and.specificity.Cloglog.threshold",]]=0
+gg.b.Pred[gg.b.Pred[]>=gg.ebird.Model@results["Equal.training.sensitivity.and.specificity.Cloglog.threshold",]]=1
+hg.Pred <- predict(hg.ebird.Model, WorldClim.vif)
+hg.b.Pred<-hg.Pred
+hg.b.Pred[hg.b.Pred[]<hg.ebird.Model@results["Equal.training.sensitivity.and.specificity.Cloglog.threshold",]]=0
+hg.b.Pred[hg.b.Pred[]>=hg.ebird.Model@results["Equal.training.sensitivity.and.specificity.Cloglog.threshold",]]=1
+wg.Pred <- predict(wg.ebird.Model, WorldClim.vif)
+wg.b.Pred<-wg.Pred
+wg.b.Pred[wg.b.Pred[]<wg.ebird.Model@results["Equal.training.sensitivity.and.specificity.Cloglog.threshold",]]=0
+wg.b.Pred[wg.b.Pred[]>=wg.ebird.Model@results["Equal.training.sensitivity.and.specificity.Cloglog.threshold",]]=1
+```
+
+# plot the importance of each variable
+
+```{r}
+gg.Pred.point<-rasterToPoints(gg.Pred)
+gg.Pred.point<-data.frame(gg.Pred.point)
+p1<-ggplot()+
+  geom_raster(data=gg.Pred.point, aes(x = x, y = y, fill = layer))+
+  coord_sf(xlim = extent(gg.Pred.point)[1:2],
+           ylim = extent(gg.Pred.point)[3:4], expand = 0)+
+  scale_fill_gradientn(colours=brewer.pal(7,"YlGn"))+
+  theme_bw()+
+  labs(x="Glaucous-winged Gulls",y="",fill="probability\nof occurrance")
+
+hg.Pred.point<-rasterToPoints(hg.Pred)
+hg.Pred.point<-data.frame(hg.Pred.point)
+p2<-ggplot()+
+  geom_raster(data=hg.Pred.point, aes(x = x, y = y, fill = layer))+
+  coord_sf(xlim = extent(hg.Pred.point)[1:2],
+           ylim = extent(hg.Pred.point)[3:4], expand = 0)+
+  scale_fill_gradientn(colours=brewer.pal(7,"YlGn"))+
+  theme_bw()+
+  labs(x="Hybrids",y="",fill="probability\nof occurrance")
+
+wg.Pred.point<-rasterToPoints(wg.Pred)
+wg.Pred.point<-data.frame(wg.Pred.point)
+p3<-ggplot()+
+  geom_raster(data=wg.Pred.point, aes(x = x, y = y, fill = layer))+
+  coord_sf(xlim = extent(wg.Pred.point)[1:2],
+           ylim = extent(wg.Pred.point)[3:4], expand = 0)+
+  scale_fill_gradientn(colours=brewer.pal(7,"YlGn"))+
+  theme_bw()+
+ labs(x="Western Gulls",y="",fill="probability\nof occurrance")
+
+p<-ggarrange(p1,p2,p3,labels=c("A","B","C"),ncol=2,nrow=2,common.legend=TRUE,legend="bottom")
+p
+```
+
+

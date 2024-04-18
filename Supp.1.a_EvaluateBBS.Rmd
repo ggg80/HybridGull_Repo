@@ -1,0 +1,339 @@
+---
+title: "BBS"
+author: "Xuewen Geng"
+date: "2022/5/25"
+output: html_document
+---
+```{r}
+#################################
+#Load Previous Data and Packages#
+#################################
+library(bbsAssistant)
+#if install.packages not working, use this:
+#remotes::install_github("TrashBirdEcology/bbsAssistant")
+if(!exists("WorldClim.cb"))
+{#basically all the other data cleaning and filtering files should be ran once before running this file, since BBS data will be compared with Ebird data
+  source("1.a_LoadEbird.Rmd")
+  source("1.b_LoadEnv.Rmd")
+  source("1.c_LoadBG.Rmd")
+  source("2.a_FilteringOcc.Rmd")
+  source("2.b_FilteringEnv.Rmd")
+}
+#load all the bbs data, should be less than 2 gb. If too big to handle by RStudio, go to BBS website and download data file for individual species will also work. 
+bbs<-grab_bbs_data()
+```
+```{r Load BBS data}
+###############################################
+#Extract species occurrence data from bbs file#
+###############################################
+
+gg.aou.code <- bbs$species_list$AOU[bbs$species_list$English_Common_Name=="Glaucous-winged Gull"]
+gg.bbs.df <- munge_bbs_data(bbs_list=bbs, species = gg.aou.code)
+#Filter for route
+gg.bbs.df=gg.bbs.df[which(gg.bbs.df$RouteTotal>0),]
+#Filter for years
+gg.bbs.df=gg.bbs.df[which(gg.bbs.df$Year>=2010),]
+
+wg.aou.code <- bbs$species_list$AOU[bbs$species_list$English_Common_Name=="Western Gull"]
+wg.bbs.df <- munge_bbs_data(bbs_list=bbs, species = wg.aou.code)
+wg.bbs.df=wg.bbs.df[which(wg.bbs.df$RouteTotal>0),]
+wg.bbs.df=wg.bbs.df[which(wg.bbs.df$Year>=2010),]
+
+hg.aou.code <- bbs$species_list$AOU[bbs$species_list$English_Common_Name=="hybrid Western Gull x Glaucous-winged Gull"]
+hg.bbs.df <- munge_bbs_data(bbs_list=bbs, species = hg.aou.code)
+hg.bbs.df=hg.bbs.df[which(hg.bbs.df$RouteTotal>0),]
+hg.bbs.df=hg.bbs.df[which(hg.bbs.df$Year>=2010),]
+```
+```{r Data filtering and thinning}
+#################
+#Filter BBS data#
+#################
+
+#Filter for locality
+gg.bbs.lonlat=gg.bbs.df
+#gg.bbs.lonlat<-data.frame(lapply(gg.bbs.lonlat, rep, gg.bbs.lonlat$RouteTotal))
+gg.bbs.lonlat2=gg.bbs.lonlat
+gg.bbs.lonlat=gg.bbs.lonlat[which(gg.bbs.lonlat$Longitude>(-175)),]
+gg.bbs.lonlat=gg.bbs.lonlat[which(gg.bbs.lonlat$Longitude<(-120)),]
+gg.bbs.lonlat=gg.bbs.lonlat[which(gg.bbs.lonlat$Latitude<62),]
+gg.bbs.lonlat=gg.bbs.lonlat[which(gg.bbs.lonlat$Latitude>37),]
+#A total of 226
+
+wg.bbs.lonlat=wg.bbs.df
+#wg.bbs.lonlat<-data.frame(lapply(wg.bbs.lonlat, rep, wg.bbs.lonlat$RouteTotal))
+wg.bbs.lonlat2=wg.bbs.lonlat
+wg.bbs.lonlat=wg.bbs.lonlat[which(wg.bbs.lonlat$Longitude>(-126)),]
+wg.bbs.lonlat=wg.bbs.lonlat[which(wg.bbs.lonlat$Longitude<(-114)),]
+wg.bbs.lonlat=wg.bbs.lonlat[which(wg.bbs.lonlat$Latitude<49),]
+wg.bbs.lonlat=wg.bbs.lonlat[which(wg.bbs.lonlat$Latitude>37),]
+#A total of 78
+
+hg.bbs.lonlat=hg.bbs.df
+#hg.bbs.lonlat<-data.frame(lapply(hg.bbs.lonlat, rep, hg.bbs.lonlat$RouteTotal))
+hg.bbs.lonlat2=hg.bbs.lonlat
+hg.bbs.lonlat=hg.bbs.lonlat[which(hg.bbs.lonlat$Longitude>(-129)),]
+hg.bbs.lonlat=hg.bbs.lonlat[which(hg.bbs.lonlat$Longitude<(-118)),]
+hg.bbs.lonlat=hg.bbs.lonlat[which(hg.bbs.lonlat$Latitude<51),]
+hg.bbs.lonlat=hg.bbs.lonlat[which(hg.bbs.lonlat$Latitude>37),]
+#A total of 5
+
+##################
+#Spatial Thinning#
+##################
+
+#Perform spatial spinning 
+thin(gg.bbs.lonlat,lat.col = "Latitude",long.col = "Longitude",spec.col = "AOU",thin.par=1,reps=1,out.dir="C://Users//10788//Desktop//gull//data",out.base="gg_bbs_thin")
+thin(wg.bbs.lonlat,lat.col = "Latitude",long.col = "Longitude",spec.col = "AOU",thin.par=1,reps=1,out.dir="C://Users//10788//Desktop//gull//data",out.base="wg_bbs_thin")
+thin(hg.bbs.lonlat,lat.col = "Latitude",long.col = "Longitude",spec.col = "AOU",thin.par=1,reps=1,out.dir="C://Users//10788//Desktop//gull//data",out.base="hg_bbs_thin")
+
+#Load spatial thinned datasets
+gg.t<-read.csv("data/gg_bbs_thin_thin1_new.csv",header=TRUE,)
+WorldClim.bbs.gg=raster::extract(WorldClim.cb,cbind(gg.t$Longitude,gg.t$Latitude),df=TRUE)
+gg.bbs.check=cbind(long=gg.t$Longitude,lat=gg.t$Latitude,WorldClim.bbs.gg)
+
+wg.t<-read.csv("data/wg_bbs_thin_thin1.csv",header=TRUE,)
+WorldClim.bbs.wg=raster::extract(WorldClim.cb,cbind(wg.t$Longitude,wg.t$Latitude),df=TRUE)
+wg.bbs.check=cbind(long=wg.t$Longitude,lat=wg.t$Latitude,WorldClim.bbs.wg)
+
+hg.t<-read.csv("data/hg_bbs_thin_thin1.csv",header=TRUE,)
+WorldClim.bbs.hg=raster::extract(WorldClim.cb,cbind(hg.t$Longitude,hg.t$Latitude),df=TRUE)
+hg.bbs.check=cbind(long=hg.t$Longitude,lat=hg.t$Latitude,WorldClim.bbs.hg)
+```
+```{r Target-Group Background Points}
+############################
+#Create Background Datasets#
+############################
+
+#Label and filter BBS data
+bg.bbs.df<-munge_bbs_data(bbs_list=bbs,states=c("british columbia","yukon","oregon","washington","california","alaska"),year.range = c(2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022))
+bg.bbs.df=bg.bbs.df[which(bg.bbs.df$RouteTotal>0),]
+bg.bbs.df=bg.bbs.df[which(bg.bbs.df$Year>=2010),]
+bg.bbs.lonlat=bg.bbs.df
+
+#Restrict spatial extent
+bg.bbs.lonlat=bg.bbs.lonlat[which(bg.bbs.lonlat$Longitude>(-175)),]
+bg.bbs.lonlat=bg.bbs.lonlat[which(bg.bbs.lonlat$Longitude<(-114)),]
+bg.bbs.lonlat=bg.bbs.lonlat[which(bg.bbs.lonlat$Latitude<62),]
+bg.bbs.lonlat=bg.bbs.lonlat[which(bg.bbs.lonlat$Latitude>37),]
+bg.bbs.latlon=cbind(bg.bbs.lonlat$Longitude,bg.bbs.lonlat$Latitude)
+colnames(bg.bbs.latlon)<-c("Longitude","Latitude")
+r=sample(length(bg.bbs.latlon[,1]),10100)
+bg.bbs.latlon.r=bg.bbs.latlon[r,]
+
+#Remove NAs
+WorldClim.bbs.bg=raster::extract(WorldClim.cb,cbind(bg.bbs.latlon.r[,1], bg.bbs.latlon.r[,2]),df=TRUE)
+bg.bbs.check=cbind(longitude=bg.bbs.latlon.r[,1],latitude=bg.bbs.latlon.r[,2],WorldClim.bbs.bg)
+any(is.na(bg.bbs.check))
+bg.bbs.check=bg.bbs.check[!is.na(bg.bbs.check$bio1),]
+```
+
+```{r gg bbs}
+# Modified to do target-ground background points extraction
+# make a new dataframe with just the coordinates for our occurrence data
+gg.bbs.loc<-cbind(Longitude=gg.bbs.lonlat$Longitude,Latitude=gg.bbs.lonlat$Latitude)
+# withold 20% of the data for testing the model
+fold <- kfold(gg.bbs.loc, k=5)
+testData <- gg.bbs.loc[fold == 1, ]
+trainData <- gg.bbs.loc[fold != 1, ]
+# fit the maxent model
+gg.bbs.Model <- maxent(WorldClim.vif, trainData, a=bg.bbs.latlon.r)
+# plot the importance of each variable
+plot(gg.bbs.Model, main="Glacous-winged gulls Model")
+# plot response cruves
+response(gg.bbs.Model)
+# predict ggrent distributions
+gg.bbs.Pred <- predict(gg.bbs.Model, WorldClim.cb)
+# plot the predicted ggrent distribution
+plot(gg.bbs.Pred, main="predicted Glaucous-winged Gulls distribution",legend.args=list("possibility\nof occurrence"))
+points(gg.bbs.lonlat$Longitude,gg.bbs.lonlat$Latitude)
+
+# evaluate model
+gg.bbs.modelEval <- evaluate(gg.bbs.Model, p = testData, a = bg.bbs.latlon.r, 
+                      x = WorldClim.vif)
+# calculate thresholds
+thres=threshold(gg.bbs.modelEval)
+# pick the threshold that equalizes sensitivity and specificity
+gg.EqualSeSpThreshold=thres$equal_sens_spec
+# calculate sensitivity
+# we need to extract the data from our predicted model at our observation locations so we 
+# can check if the model outputs a value > our threshold at these known presence points
+# (aka we are checking for true positives)
+# we'll work only with the first k-fold group, so we're using the test data
+gg.PredPres <- raster::extract(gg.bbs.Pred, testData)
+# Our sensitivity is the true positive RATE, so what proportion of our observation 
+# points are at or above our presence threshold?
+gg.Sen <- sum(gg.PredPres >= gg.EqualSeSpThreshold) / length(gg.PredPres)
+gg.Sen
+# calculate specificity
+# we need to extract the data from our predicted model at our background points, because they
+# are our "absence" points.
+# again, we are only working with the first k-fold group
+gg.PredAbs<-raster::extract(gg.bbs.Pred,bg.bbs.latlon.r)
+gg.Sep<-sum(gg.PredAbs<gg.EqualSeSpThreshold)/length(gg.PredAbs)
+gg.Sep
+# Our specificity is our true negative rate, so what proportion of our background 
+# points were below our presence threshold?
+plot(gg.bbs.modelEval, 'ROC')
+# get the AUC value
+AUC <- gg.bbs.modelEval@auc
+AUC
+```
+
+```{r wg bbs}
+# Modified to do target-ground background points extraction
+# make a new dataframe with just the coordinates for our occurrence data
+wg.bbs.loc<-cbind(Longitude=wg.bbs.lonlat$Longitude,Latitude=wg.bbs.lonlat$Latitude)
+# withold 20% of the data for testing the model
+fold <- kfold(wg.bbs.loc, k=5)
+testData <- wg.bbs.loc[fold == 1, ]
+trainData <- wg.bbs.loc[fold != 1, ]
+# fit the maxent model
+wg.bbs.Model <- maxent(WorldClim.vif, trainData,a=bg.bbs.latlon.r)
+# plot the importance of each variable
+plot(wg.bbs.Model, main="Western gulls Model")
+# plot response cruves
+#response(wg.bbs.Model)
+# predict wgrent distributions
+wg.bbs.Pred <- predict(wg.bbs.Model, WorldClim.vif)
+# plot the predicted wgrent distribution
+plot(wg.bbs.Pred, main="predicted Western Gulls distribution",legend.args=list("possibility\nof occurrence"))
+points(wg.bbs.lonlat$Longitude,wg.bbs.lonlat$Latitude)
+
+wg.bbs.modelEval <- evaluate(wg.bbs.Model, p = testData, a = bg.bbs.latlon.r,
+                      x = WorldClim.vif)
+# calculate thresholds
+thres=threshold(wg.bbs.modelEval)
+# pick the threshold that equalizes sensitivity and specificity
+wg.EqualSeSpThreshold=thres$equal_sens_spec
+# calculate sensitivity
+# we need to extract the data from our predicted model at our observation locations so we 
+# can check if the model outputs a value > our threshold at these known presence points
+# (aka we are checking for true positives)
+# we'll work only with the first k-fold group, so we're using the test data
+wg.PredPres <- raster::extract(wg.bbs.Pred, testData)
+# Our sensitivity is the true positive RATE, so what proportion of our observation 
+# points are at or above our presence threshold?
+wg.Sen <- sum(wg.PredPres >= wg.EqualSeSpThreshold) / length(wg.PredPres)
+wg.Sen
+# calculate specificity
+# we need to extract the data from our predicted model at our background points, because they
+# are our "absence" points.
+# again, we are only working with the first k-fold group
+wg.PredAbs<-raster::extract(wg.bbs.Pred,bg.bbs.latlon.r)
+wg.Sep<-sum(wg.PredAbs<wg.EqualSeSpThreshold)/length(wg.PredAbs)
+wg.Sep
+# Our specificity is our true negative rate, so what proportion of our background 
+# points were below our presence threshold?
+plot(wg.bbs.modelEval, 'ROC')
+# get the AUC value
+AUC <- wg.bbs.modelEval@auc
+AUC
+```
+
+```{r hg bbs}
+# Modified to do target-ground background points extraction
+# make a new dataframe with just the coordinates for our occurrence data
+hg.bbs.loc<-cbind(hg.bbs.lonlat$Longitude,hg.bbs.lonlat$Latitude)
+# withold 20% of the data for testing the model
+fold <- kfold(hg.bbs.loc, k=2)
+testData <- hg.bbs.loc[fold == 1, ]
+trainData <- hg.bbs.loc[fold != 1, ]
+# fit the maxent model
+hg.bbs.Model <- maxent(WorldClim.vif, trainData,a=bg.bbs.latlon.r)
+# plot the importance of each variable
+plot(hg.bbs.Model, main="Hybrid gulls Model")
+# plot response cruves
+#response(hg.bbs.Model)
+# predict hgrent distributions
+hg.bbs.Pred <- predict(hg.bbs.Model, WorldClim.vif)
+# plot the predicted hgrent distribution
+plot(hg.bbs.Pred, main="predicted Hybrid Gulls distribution",legend.args=list("possibility\nof occurrence"))
+points(hg.bbs.lonlat$Longitude,hg.bbs.lonlat$Latitude)
+
+hg.bbs.modelEval <- evaluate(hg.bbs.Model, p = testData, a = bg.bbs.latlon.r, 
+                      x = WorldClim.vif)
+# calculate thresholds
+thres=threshold(hg.bbs.modelEval)
+# pick the threshold that equalizes sensitivity and specificity
+hg.EqualSeSpThreshold=thres$equal_sens_spec
+# calculate sensitivity
+# we need to extract the data from our predicted model at our observation locations so we 
+# can check if the model outputs a value > our threshold at these known presence points
+# (aka we are checking for true positives)
+# we'll work only with the first k-fold group, so we're using the test data
+hg.PredPres <- raster::extract(hg.bbs.Pred, testData)
+# Our sensitivity is the true positive RATE, so what proportion of our observation 
+# points are at or above our presence threshold?
+hg.Sen <- sum(hg.PredPres >= hg.EqualSeSpThreshold) / length(hg.PredPres)
+hg.Sen
+# calculate specificity
+# we need to extract the data from our predicted model at our background points, because they
+# are our "absence" points.
+# again, we are only working with the first k-fold group
+hg.PredAbs<-raster::extract(hg.bbs.Pred,bg.bbs.latlon.r)
+hg.Sep<-sum(hg.PredAbs<hg.EqualSeSpThreshold)/length(hg.PredAbs)
+hg.Sep
+# Our specificity is our true negative rate, so what proportion of our background 
+# points were below our presence threshold?
+plot(hg.bbs.modelEval, 'ROC')
+# get the AUC value
+AUC <- hg.bbs.modelEval@auc
+AUC
+```
+
+```{r Evaluate bbs model using ebird data}
+
+# evaluate model
+gg_bbs_ebird.modelEval <- evaluate(gg.bbs.Model, p = gg.lonlat, a = BG.lonlat, 
+                      x = WorldClim.vif)
+# points were below our presence threshold?
+plot(gg_bbs_ebird.modelEval, 'ROC')
+# get the AUC value
+AUC <- gg_bbs_ebird.modelEval@auc
+AUC
+
+wg_bbs_ebird.modelEval <- evaluate(wg.bbs.Model, p = wg.lonlat, a = BG.lonlat, 
+                      x = WorldClim.vif)
+# points were below our presence threshold?
+plot(wg_bbs_ebird.modelEval, 'ROC')
+# get the AUC value
+AUC <-wg_bbs_ebird.modelEval@auc
+AUC
+
+hg_bbs_ebird.modelEval <- evaluate(hg.bbs.Model, p = hg.lonlat, a = BG.lonlat, 
+                      x = WorldClim.vif)
+# points were below our presence threshold?
+plot(hg_bbs_ebird.modelEval, 'ROC')
+# get the AUC value
+AUC <-hg_bbs_ebird.modelEval@auc
+AUC
+```
+```{r Evaluate ebird model using bbs data}
+
+# evaluate model
+gg_ebird_bbs.modelEval <- evaluate(gg.ebird.Model, p = gg.bbs.loc, a = bg.bbs.latlon.r, 
+                      x = WorldClim.vif)
+# points were below our presence threshold?
+plot(gg_ebird_bbs.modelEval, 'ROC')
+# get the AUC value
+AUC <- gg_ebird_bbs.modelEval@auc
+AUC
+
+# evaluate model
+hg_ebird_bbs.modelEval <- evaluate(hg.ebird.Model, p = hg.bbs.loc, a = bg.bbs.latlon.r, 
+                      x = WorldClim.vif)
+# points were below our presence threshold?
+plot(hg_ebird_bbs.modelEval, 'ROC')
+# get the AUC value
+AUC <-hg_ebird_bbs.modelEval@auc
+AUC
+
+# evaluate model
+wg_ebird_bbs.modelEval <- evaluate(wg.ebird.Model, p = wg.bbs.loc, a = bg.bbs.latlon.r, 
+                      x = WorldClim.vif)
+# points were below our presence threshold?
+plot(wg_ebird_bbs.modelEval, 'ROC')
+# get the AUC value
+AUC <- wg_ebird_bbs.modelEval@auc
+AUC
+```

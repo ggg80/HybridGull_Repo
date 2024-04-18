@@ -1,0 +1,62 @@
+---
+title: "1.a_LoadEnv"
+output: html_document
+date: "2023-07-16"
+---
+```{r preparation}
+library(terra)
+library(sf)
+library(tidyverse)
+
+#crop the environmental layers first based on localities of the occurrence points
+extent=c(-175,-114,37,62)
+```
+```{r wrld_simpl}
+#load simple world polygons map
+data(wrld_simpl)
+#crop based on study extent
+wrld_simpl.cp=crop(wrld_simpl,extent)
+```
+```{r Load WorldClim, cache=TRUE, warning=FALSE}
+#load Bioclimatic variables from WordClim.com
+WorldClim=getData("worldclim", var="bio", res=2.5)
+# rescale data using gain()
+gain(WorldClim) <- 0.1
+#WorldClim.new<-spTransform(WorldClim,crs)
+WorldClim.cb=crop(WorldClim,extent)
+names(WorldClim.cb)<-names(WorldClim)
+```
+```{r NALCMS landcover}
+#load landcover type from NALCMS
+#this layer has been reprojected using ArcGIS using the project raster management tool in order to set its coordinate system as WGS84
+#the same approach can be done in R by using the projectRaster() Function:
+#landcover<-raster("input/land_cover_2020_30m_tif/NA_NALCMS_land_projectraster.tif")
+#landcover.lonlat<-projectRaster(landcover,crs="+proj=longlat +datum=WGS84 +no_defs",method="ngb")
+#landcover.crop<-crop(landcover,extent)
+#writeRaster(landcover.crop,"C:/Users/10788/Desktop/gull/input/land_cover_2020_30m_tif/land_crop.tif",overwrite=T)
+landcover_list<-unlist(map("C:/Users/10788/Desktop/gull/input/land_cover_2020_30m_tif/aggregate",~list.files(.,full.names=T)))
+landcover.agg<-map(landcover_list,raster)
+landcover.agg<-stack(landcover.agg)
+landcover.agg.proj<-projectRaster(landcover.agg,WorldClim)
+landcover.agg.proj<-crop(landcover.agg.proj,extent)
+
+```
+```{r coastline and elevation}
+#load coastline from NOAA 
+coast.distance<-raster("input/GMT_intermediate_coast_distance_01d.tif")
+coast.distance.crop=crop(coast.distance,extent)
+coast.distance.lonlat<-projectRaster(coast.distance.crop,WorldClim.cb)
+
+#load elevation using elevtr()
+elev.crop<-get_elev_raster(WorldClim.cb,z=8)
+elev.lonlat.crop<-projectRaster(elev.crop,WorldClim.cb)
+```
+```{r stack}
+#Combine all the different environmental layers and produce the final environment datasets
+#stack the raster layers together
+WorldClim.cb=stack(WorldClim.cb,landcover.agg.proj,coast.distance.lonlat,elev.lonlat.crop)
+#label
+names(WorldClim.cb)<-c(names(WorldClim),"temp.subpolar.needleleaf","temp.subpolar.grass","wetland","cropland","barrenland","urban","water","snow.ice","temp.subpolar.broadleaf","mixed.forest","temp.subpolar.shrub","d.coastline","elevation")
+#test plot
+plot(WorldClim.cb$d.coastline)
+```

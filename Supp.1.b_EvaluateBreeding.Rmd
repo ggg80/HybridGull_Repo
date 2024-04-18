@@ -1,0 +1,508 @@
+---
+title: "Breeding individuals transferability test"
+output: html_document
+date: "2024-03-14"
+---
+```{r Set parameters for data filtering}
+########################
+#Load required packages#
+########################
+library("dismo")
+library("raster")
+library("ENMTools")
+library("usdm")
+library("auk")
+library("ggplot2")
+library("spThin")
+
+##################################
+#Set parameters for data cleaning# 
+#based on Best Practices for Using eBird Data (Strimas-Mackey et al. 2023)#
+##################################
+
+#set years of interest 
+years=2010:2023
+#set breeding season (June, July) as date parameter
+dates=c("*-06-01","*-07-31")
+#set country ranges, limited to North America
+countries=c("US","CA")
+#set observation duration as 0 min to 360 min
+durations=c(0,360)
+#set protocol as Stationary 
+protocols=c("Stationary")
+#set starting time as 6:00-21:00
+starttime=(start_time=c("06:00","21:00"))
+#set spatial box to remove outliers in each species
+#the spatial boxes are defined by the localities of ebird occurrence point. 
+bbox_gg=c(-175,37,-120,62)
+bbox_wg=c(-126,37,-114,49)
+bbox_hg=c(-129,37,-118,51)
+```
+```{r Breeding records: Data filtering}
+#############################################
+#Load and filter ebird data using auk pakage#
+#############################################
+
+##1. Load and filter glaucous-winged gulls
+glwgul<-"input/ebd_glwgul_relMar-2023.txt"
+#set output file path
+f_out <- "data/ebd_filtered_glwgul.txt"
+#set the set of filters using auk
+gg.filters <- auk_ebd(glwgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_gg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_breeding()%>%
+  auk_complete()
+gg.filtered<- auk_filter(gg.filters, file = f_out,overwrite=TRUE)
+#apply filters and load the filtered dataset
+glwgul <- read_ebd(gg.filtered)
+#Limit number of observers lower than 10 people
+glwgul=glwgul[which(glwgul$number_observers<=10),]
+#Limit breeding category to confirmed breeding
+glwgul=glwgul[which(glwgul$breeding_category=="C4"),]
+#A total of 240 points
+
+##2. Load and filter western gulls and hybrid gulls datasets
+wesgul<-"input/ebd_wesgul_relMar-2023.txt"
+f_out <- "data/ebd_filtered_wesgul.txt"
+wg.filters <- auk_ebd(wesgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_wg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_breeding()%>%
+  auk_complete()
+wg.filtered<- auk_filter(wg.filters, file = f_out,overwrite=TRUE)
+wesgul <- read_ebd(wg.filtered)
+wesgul=wesgul[which(wesgul$number_observers<=10),]
+wesgul=wesgul[which(wesgul$breeding_category=="C4"),]
+#A total of 321 occurrence points
+
+hybgul<-"input/ebd_x00051_relMar-2023.txt"
+f_out <- "data/ebd_filtered_hybgul.txt"
+hg.filters <- auk_ebd(hybgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_hg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_breeding()%>%
+  auk_complete()
+hg.filtered<- auk_filter(hg.filters, file = f_out, overwrite=TRUE)
+hybgul<-read_ebd(hg.filtered,rollup=FALSE)
+hybgul=hybgul[which(hybgul$number_observers<=10),]
+hybgul=hybgul[which(hybgul$breeding_category=="C4"),]
+#A total of 23 occurrence points
+```
+```{r Breeding records: Filtering and thinning}
+###############
+#Data cleaning#
+#Remove occurrence points that have NA environmental data#
+###############
+#1. glauous-winged gulls
+WorldClim.br.gg=raster::extract(WorldClim.cb,cbind(glwgul$longitude,glwgul$latitude),df=TRUE)
+gg.br.check=cbind(long=glwgul$longitude,lat=glwgul$latitude,name=glwgul$scientific_name,WorldClim.br.gg)
+any(is.na(gg.br.check))
+gg.br.check=gg.br.check[!is.na(gg.br.check$bio1),]
+any(is.na(WorldClim.br.gg))
+WorldClim.br.gg=WorldClim.br.gg[!is.na(WorldClim.br.gg$bio1),]
+#a result of 231 data points
+
+#2. western gulls
+WorldClim.br.wg=raster::extract(WorldClim.cb,cbind(wesgul$longitude,wesgul$latitude),df=TRUE)
+wg.br.check=cbind(long=wesgul$longitude,lat=wesgul$latitude,name=wesgul$scientific_name,WorldClim.br.wg)
+any(is.na(wg.check))
+wg.br.check=wg.br.check[!is.na(wg.br.check$bio1),]
+any(is.na(WorldClim.br.wg))
+WorldClim.br.wg=WorldClim.br.wg[!is.na(WorldClim.br.wg$bio1),]
+#a result of 307 data points
+
+#3. hybrid gulls
+WorldClim.br.hg=raster::extract(WorldClim.cb,cbind(hybgul$longitude,hybgul$latitude),df=TRUE)
+hg.br.check=cbind(long=hybgul$longitude,lat=hybgul$latitude,name=hybgul$scientific_name,WorldClim.br.hg)
+any(is.na(hg.br.check))
+hg.br.check=hg.br.check[!is.na(hg.br.check$bio1),]
+any(is.na(WorldClim.br.hg))
+WorldClim.br.hg=WorldClim.br.hg[!is.na(WorldClim.br.hg$bio1),]
+#a result of 14 data points
+
+
+##################
+#Spatial thinning#
+##################
+
+#1. perform spatial thining using thin() function from spThin package
+thin(gg.br.check,lat.col = "lat",long.col = "long",spec.col = "name",thin.par=0.5,reps=1,out.dir = "./data",out.base="glaucouswingedgull_breeding_thin")
+thin(hg.br.check,lat.col = "lat",long.col = "long",spec.col = "name",thin.par=0.5,reps=1,out.dir="./data",out.base="hybridgull_breeding_thin")
+thin(wg.br.check,lat.col = "lat",long.col = "long",spec.col = "name",thin.par=0.5,reps=1,out.dir="./data",out.base="westerngull_breeding_thin")
+
+#2. load thinned datasets 
+gg.t<-read.csv("data/glaucouswingedgull_breeding_thin_thin1.csv",header=TRUE,)
+WorldClim.br.gg=raster::extract(WorldClim.cb,cbind(gg.t$long,gg.t$lat),df=TRUE)
+gg.br.check=cbind(long=gg.t$long,lat=gg.t$lat,WorldClim.br.gg)
+#A total of 43
+wg.t<-read.csv("data/westerngull_breeding_thin_thin1.csv",header=TRUE,)
+WorldClim.br.wg=raster::extract(WorldClim.cb,cbind(wg.t$long,wg.t$lat),df=TRUE)
+wg.br.check=cbind(long=wg.t$long,lat=wg.t$lat,WorldClim.br.wg)
+#A total of 81
+hg.t<-read.csv("data/hybridgull_breeding_thin_thin1.csv",header=TRUE,)
+WorldClim.br.hg=raster::extract(WorldClim.cb,cbind(hg.t$long,hg.t$lat),df=TRUE)
+hg.br.check=cbind(long=hg.t$long,lat=hg.t$lat,WorldClim.br.hg)
+#A total of 9
+```
+```{r Breeding records: Background data filtering}
+##########################################
+#Load and filter background ebird records#
+#Using the same filters as the experimental groups#
+##########################################
+#1. read occurrence data from Canada: British Columbia, Yukon Territory
+CA_BC<-"input/ebd_CA-BC_relMay-2023.txt"
+f_out <- "data/ebd_filtered_CA-BC_br.txt"
+filters <- auk_ebd(CA_BC)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox=bbox_bg)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_breeding()%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+CA_BC<-read_ebd(filtered)
+CA_BC=CA_BC[which(CA_BC$number_observers<=10),]
+CA_BC=CA_BC[which(CA_BC$breeding_category=="C4"),]
+#A total of 9079
+CA_YT<-"input/ebd_CA-YT_relMay-2023.txt"
+f_out <- "data/ebd_filtered_CA-YT_br.txt"
+filters <- auk_ebd(CA_YT)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox=bbox_bg)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_breeding()%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+CA_YT<-read_ebd(filtered)
+CA_YT=CA_YT[which(CA_YT$number_observers<=10),]
+CA_YT=CA_YT[which(CA_YT$breeding_category=="C4"),]
+#A total of 916
+
+#2. read occurrence data from US: Alaska, California, Oregon, Washington
+US_OR<-"input/ebd_US-OR_relMay-2023.txt"
+f_out <- "data/ebd_filtered_US-OR_br.txt"
+filters <- auk_ebd(US_OR)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox=bbox_bg)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_breeding()%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+US_OR <- read_ebd(filtered)
+US_OR=US_OR[which(US_OR$number_observers<=10),]
+US_OR=US_OR[which(US_OR$breeding_category=="C4"),]
+#A total of 7994
+
+US_CA<-"input/ebd_US-CA_relMay-2023.txt"
+f_out <- "data/ebd_filtered_US-CA_br.txt"
+filters <- auk_ebd(US_CA)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox=bbox_bg)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_breeding()%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+US_CA <- read_ebd(filtered)
+US_CA=US_CA[which(US_CA$number_observers<=10),]
+US_CA=US_CA[which(US_CA$breeding_category=="C4"),]
+#A total of 20054
+
+US_AK<-"input/ebd_US-AK_relMay-2023.txt"
+f_out <- "data/ebd_filtered_US-AK_br.txt"
+filters <- auk_ebd(US_AK)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox=bbox_bg)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_breeding()%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+US_AK <- read_ebd(filtered)
+US_AK=US_AK[which(US_AK$number_observers<=10),]
+US_AK=US_AK[which(US_AK$breeding_category=="C4"),]
+#A total of 2194
+
+US_WA<-"input/ebd_US-WA_relMay-2023.txt"
+f_out <- "data/ebd_filtered_US-WA_br.txt"
+filters <- auk_ebd(US_WA)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox=bbox_bg)%>%
+  auk_duration(duration=durations)%>%
+  auk_distance(distance=distances)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_breeding()%>%
+  auk_complete()
+filtered<- auk_filter(filters, file = f_out,overwrite=TRUE)
+US_WA <- read_ebd(filtered)
+US_WA=US_WA[which(US_WA$number_observers<=10),]
+US_WA=US_WA[which(US_WA$breeding_category=="C4"),]
+#A total of 10477
+```
+```{r Breeding records: Background filtering and thinning}
+########################################
+#Filter and thin our background dataset#
+########################################
+
+#Combine all regions
+BG.br=rbind.data.frame(CA_BC,CA_YT,US_OR,US_WA,US_CA,US_AK)
+#A total of 50711 obs before thinning
+
+#perform spatial thinning
+BG.br.r=BG.br
+thin(BG.br,lat.col = "latitude",long.col = "longitude",spec.col = "common_name",thin.par=0.5,reps=1,out.dir = "./data",out.base = "bg_breeding_thin")
+
+#load thinned dataset
+BG.thin.br<-read.csv("data/bg_breeding_thin_thin1.csv",header=TRUE,)
+
+#Filter for NAs
+WorldClim.br.bg=raster::extract(WorldClim.cb,cbind(BG.thin.br$long,BG.thin.br$lat),df=TRUE)
+bg.br.check=cbind(longitude=BG.thin.br$long,latitude=BG.thin.br$lat,WorldClim.br.bg)
+```
+```{r Breeding records: Building maxent model}
+####################
+#Build Maxent Model#
+####################
+
+#data preparation for modeling
+gg.br.loc<-cbind(Longitude=gg.br.check$long,Latitude=gg.br.check$lat)
+wg.br.loc<-cbind(Longitude=wg.br.check$long,Latitude=wg.br.check$lat)
+hg.br.loc<-cbind(Longitude=hg.br.check$long,Latitude=hg.br.check$lat)
+bg.br.loc<-cbind(Longitude=bg.br.check$longitude,Latitude=bg.br.check$latitude)
+
+#maxent models
+gg.br.Model <- maxent(WorldClim.vif, gg.br.loc, a=bg.br.loc)
+hg.br.Model <- maxent(WorldClim.vif, hg.br.loc, a=bg.br.loc)
+wg.br.Model <- maxent(WorldClim.vif, wg.br.loc, a=bg.br.loc)
+```
+
+```{r Non-Breeding records: Data filtering}
+#############################################
+#Load and filter ebird data using auk pakage#
+#############################################
+##1. Load and filter glaucous-winged gulls
+glwgul<-"input/ebd_glwgul_relMar-2023.txt"
+#set output file path
+f_out <- "data/ebd_filtered_glwgul.txt"
+#set the set of filters using auk
+gg.filters <- auk_ebd(glwgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_gg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_complete()
+gg.filtered<- auk_filter(gg.filters, file = f_out,overwrite=TRUE)
+#apply filters and load the filtered dataset
+glwgul <- read_ebd(gg.filtered)
+#Limit number of observers lower than 10 people
+glwgul=glwgul[which(glwgul$number_observers<=10),]
+#Limit breeding category to confirmed breeding
+glwgul=glwgul[-which(glwgul$breeding_category=="C4"),]
+#A total of 16821 points
+
+##2. Load and filter western gulls and hybrid gulls datasets
+wesgul<-"input/ebd_wesgul_relMar-2023.txt"
+f_out <- "data/ebd_filtered_wesgul.txt"
+wg.filters <- auk_ebd(wesgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_wg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_complete()
+wg.filtered<- auk_filter(wg.filters, file = f_out,overwrite=TRUE)
+wesgul <- read_ebd(wg.filtered)
+wesgul=wesgul[which(wesgul$number_observers<=10),]
+wesgul=wesgul[-which(wesgul$breeding_category=="C4"),]
+#A total of 8657 occurrence points
+
+hybgul<-"input/ebd_x00051_relMar-2023.txt"
+f_out <- "data/ebd_filtered_hybgul.txt"
+hg.filters <- auk_ebd(hybgul)%>%
+  auk_date(date=dates)%>%
+  auk_year(year=years)%>%
+  auk_bbox(bbox = bbox_hg)%>%
+  auk_country(country=countries)%>%
+  auk_duration(duration=durations)%>%
+  auk_protocol(protocol=protocols)%>%
+  auk_time(start_time = starttime)%>%
+  auk_complete()
+hg.filtered<- auk_filter(hg.filters, file = f_out, overwrite=TRUE)
+hybgul<-read_ebd(hg.filtered,rollup=FALSE)
+hybgul=hybgul[which(hybgul$number_observers<=10),]
+hybgul=hybgul[-which(hybgul$breeding_category=="C4"),]
+#A total of 1874 occurrence points
+```
+```{r Non-Breeding records: Filtering and thinning}
+###############
+#Data cleaning#
+#Remove occurrence points that have NA environmental data#
+###############
+#1. glauous-winged gulls
+WorldClim.be.gg=raster::extract(WorldClim.cb,cbind(glwgul$longitude,glwgul$latitude),df=TRUE)
+gg.be.check=cbind(long=glwgul$longitude,lat=glwgul$latitude,name=glwgul$scientific_name,WorldClim.be.gg)
+any(is.na(gg.be.check))
+gg.be.check=gg.be.check[!is.na(gg.be.check$bio1),]
+any(is.na(WorldClim.be.gg))
+WorldClim.be.gg=WorldClim.be.gg[!is.na(WorldClim.be.gg$bio1),]
+#a result of 16245 data points
+
+#2. western gulls
+WorldClim.be.wg=raster::extract(WorldClim.cb,cbind(wesgul$longitude,wesgul$latitude),df=TRUE)
+wg.be.check=cbind(long=wesgul$longitude,lat=wesgul$latitude,name=wesgul$scientific_name,WorldClim.be.wg)
+any(is.na(wg.check))
+wg.be.check=wg.be.check[!is.na(wg.be.check$bio1),]
+any(is.na(WorldClim.be.wg))
+WorldClim.be.wg=WorldClim.be.wg[!is.na(WorldClim.be.wg$bio1),]
+#a result of 8723 data points
+
+#3. hybrid gulls
+WorldClim.be.hg=raster::extract(WorldClim.cb,cbind(hybgul$longitude,hybgul$latitude),df=TRUE)
+hg.be.check=cbind(long=hybgul$longitude,lat=hybgul$latitude,name=hybgul$scientific_name,WorldClim.be.hg)
+any(is.na(hg.be.check))
+hg.be.check=hg.be.check[!is.na(hg.be.check$bio1),]
+any(is.na(WorldClim.be.hg))
+WorldClim.be.hg=WorldClim.be.hg[!is.na(WorldClim.be.hg$bio1),]
+#a result of 1824 data points
+
+
+##################
+#Spatial thinning#
+##################
+
+#1. perform spatial thining using thin() function from spThin package
+thin(gg.be.check,lat.col = "lat",long.col = "long",spec.col = "name",thin.par=0.5,reps=1,out.dir = "./data",out.base="glaucouswingedgull_nobreeding_thin")
+thin(hg.be.check,lat.col = "lat",long.col = "long",spec.col = "name",thin.par=0.5,reps=1,out.dir="./data",out.base="hybridgull_nobreeding_thin")
+thin(wg.be.check,lat.col = "lat",long.col = "long",spec.col = "name",thin.par=0.5,reps=1,out.dir="./data",out.base="westerngull_nobreeding_thin")
+
+#2. load thinned datasets 
+gg.t<-read.csv("data/glaucouswingedgull_nobreeding_thin_thin1.csv",header=TRUE,)
+WorldClim.be.gg=raster::extract(WorldClim.cb,cbind(gg.t$long,gg.t$lat),df=TRUE)
+gg.be.check=cbind(long=gg.t$long,lat=gg.t$lat,WorldClim.be.gg)
+#A total of 2984
+wg.t<-read.csv("data/westerngull_nobreeding_thin_thin1.csv",header=TRUE,)
+WorldClim.be.wg=raster::extract(WorldClim.cb,cbind(wg.t$long,wg.t$lat),df=TRUE)
+wg.be.check=cbind(long=wg.t$long,lat=wg.t$lat,WorldClim.be.wg)
+#A total of 1381
+hg.t<-read.csv("data/hybridgull_nobreeding_thin_thin1.csv",header=TRUE,)
+WorldClim.be.hg=raster::extract(WorldClim.cb,cbind(hg.t$long,hg.t$lat),df=TRUE)
+hg.be.check=cbind(long=hg.t$long,lat=hg.t$lat,WorldClim.be.hg)
+#A total of 613
+```
+```{r Non-Breeding records: Building maxent model}
+####################
+#Build Maxent Model#
+####################
+
+#data preparation for modeling
+gg.be.loc<-cbind(Longitude=gg.be.check$long,Latitude=gg.be.check$lat)
+wg.be.loc<-cbind(Longitude=wg.be.check$long,Latitude=wg.be.check$lat)
+hg.be.loc<-cbind(Longitude=hg.be.check$long,Latitude=hg.be.check$lat)
+
+#if no BG.lonlat, run previous 1.c file or load your saved thinned background points
+#maxent models
+gg.be.Model <- maxent(WorldClim.vif, gg.be.loc, a=BG.lonlat)
+hg.be.Model <- maxent(WorldClim.vif, hg.be.loc, a=BG.lonlat)
+wg.be.Model <- maxent(WorldClim.vif, wg.be.loc, a=BG.lonlat)
+```
+
+```{r Evaluation: ebird model with breeding bird data}
+############################
+#Evaluate ebird model without breeding records with breeding records as test data#
+############################
+
+
+# evaluate model
+gg_be_br.modelEval <- evaluate(gg.be.Model, p = gg.br.loc, a = BG.lonlat,x = WorldClim.vif)
+# points were below our presence threshold?
+plot(gg_be_br.modelEval, 'ROC')
+# get the AUC value
+AUC <- gg_be_br.modelEval@auc
+AUC
+
+# evaluate model
+hg_be_br.modelEval <- evaluate(hg.be.Model, p = hg.br.loc, a = BG.lonlat,x = WorldClim.vif)
+# points were below our presence threshold?
+plot(hg_be_br.modelEval, 'ROC')
+# get the AUC value
+AUC <-hg_be_br.modelEval@auc
+AUC
+
+# evaluate model
+wg_be_br.modelEval <- evaluate(wg.be.Model, p = wg.br.loc, a = BG.lonlat,x = WorldClim.vif)
+# points were below our presence threshold?
+plot(wg_be_br.modelEval, 'ROC')
+# get the AUC value
+AUC <- wg_be_br.modelEval@auc
+AUC
+```
+```{r Evaluation: breeding bird model with ebird data}
+############################
+#Evaluate breeding record model with non-breeding records as test data#
+############################
+
+
+# evaluate model
+gg_br_be.modelEval <- evaluate(gg.br.Model, p = gg.be.loc, a = bg.br.loc,x = WorldClim.vif)
+# points were below our presence threshold?
+plot(gg_br_be.modelEval, 'ROC')
+# get the AUC value
+AUC <- gg_br_be.modelEval@auc
+AUC
+
+# evaluate model
+hg_br_be.modelEval <- evaluate(hg.br.Model, p = hg.be.loc, a = bg.br.loc,x = WorldClim.vif)
+# points were below our presence threshold?
+plot(hg_br_be.modelEval, 'ROC')
+# get the AUC value
+AUC <-hg_br_be.modelEval@auc
+AUC
+
+# evaluate model
+wg_br_be.modelEval <- evaluate(wg.br.Model, p = wg.be.loc, a = bg.br.loc,x = WorldClim.vif)
+# points were below our presence threshold?
+plot(wg_br_be.modelEval, 'ROC')
+# get the AUC value
+AUC <- wg_br_be.modelEval@auc
+AUC
+```
